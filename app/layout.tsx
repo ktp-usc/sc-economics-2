@@ -1,17 +1,17 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import React from "react";
-
+import Link from "next/link";
+import Image from "next/image";
 export const metadata: Metadata = {
-    title: "Future KTP Web App",
+    title: "Volunteer Application | SC Economics",
     description: "KTP SP26"
 };
-
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
     return (
         <html lang="en">
         <body>
-        { children }
+        {children}
         </body>
         </html>
     );
