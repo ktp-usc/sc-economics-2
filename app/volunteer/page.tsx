@@ -45,11 +45,11 @@ export default function VolunteerPage() {
                 style={{ background: "linear-gradient(135deg, #001f4d 0%, #003366 50%, #1d4ed8 100%)" }}
             >
                 <div
-                    className="absolute -top-24 -right-24 w-[480px] h-[480px] rounded-full opacity-10"
+                    className="absolute -top-24 -right-24 w-120 h-120 rounded-full opacity-10"
                     style={{ background: "radial-gradient(circle, #60a5fa, transparent)" }}
                 />
                 <div
-                    className="absolute bottom-0 -left-16 w-[320px] h-[320px] rounded-full opacity-[0.07]"
+                    className="absolute bottom-0 -left-16 w-[320px] h-80 rounded-full opacity-[0.07]"
                     style={{ background: "radial-gradient(circle, #93c5fd, transparent)" }}
                 />
 
@@ -64,8 +64,8 @@ export default function VolunteerPage() {
                             <span className="text-blue-300">Change Their Life.</span>
                         </h1>
                         <p className="text-blue-100 text-lg leading-relaxed mb-8 max-w-xl">
-                            SC Economics gives South Carolina's K-12 students the economic and financial
-                            literacy skills to thrive — and it's powered by volunteers like you.
+                            SC Economics gives South Carolina&apos;s K-12 students the economic and financial
+                            literacy skills to thrive — and it&apos;s powered by volunteers like you.
                         </p>
                         <div className="flex flex-wrap gap-3">
                             <button
@@ -98,7 +98,7 @@ export default function VolunteerPage() {
                     <div className="text-center mb-4">
                         <h2 className="text-3xl font-extrabold text-[#1e3a5f] mb-3">Why Your Time Matters</h2>
                         <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-                            Here's what SC Economics accomplished in the 2024–25 school year — made
+                            Here&apos;s what SC Economics accomplished in the 2024–25 school year — made
                             possible by the support of volunteers and donors across South Carolina.
                         </p>
                     </div>
@@ -121,13 +121,13 @@ export default function VolunteerPage() {
                         ))}
                     </div>
 
-                    <div className="mt-12 bg-gradient-to-r from-[#003366] to-[#1d4ed8] rounded-2xl p-8 text-white text-center">
+                    <div className="mt-12 bg-linear-to-r from-[#003366] to-[#1d4ed8] rounded-2xl p-8 text-white text-center">
                         <p className="text-xl font-semibold leading-relaxed max-w-3xl mx-auto">
                             In 2024–25, SC Economics served{" "}
                             <strong className="text-blue-200">1,030 unique teachers</strong>, ran{" "}
                             <strong className="text-blue-200">143 educator events</strong>, and reached{" "}
                             <strong className="text-blue-200">11,348 students</strong> through student
-                            contests — across 65 of South Carolina's 72 public school districts.
+                            contests — across 65 of South Carolina&apos;s 72 public school districts.
                         </p>
                         <p className="text-blue-300 text-sm mt-4 font-medium">
                             — SC Economics 2024–2025 Annual Report
