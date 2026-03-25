@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 import React from "react";
 import Header from "@/components/header";
+import PageTransition from "@/components/PageTransition";
+import { NavigationProvider } from "@/context/navigation";
 
 export const metadata: Metadata = {
     title: "SC Economics Volunteer",
@@ -12,8 +14,12 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
     return (
         <html lang="en">
         <body>
-        <Header />
-        {children}
+        <NavigationProvider>
+            <Header />
+            <PageTransition>
+                {children}
+            </PageTransition>
+        </NavigationProvider>
         </body>
         </html>
     );
