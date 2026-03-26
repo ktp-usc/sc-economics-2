@@ -4,11 +4,12 @@ import { usePathname } from "next/navigation";
 import { useNavigate } from "@/context/navigation";
 
 const navItems = [
-    { label: "Apply",            href: "/"        },
+    { label: "Home",             href: "/" },
+    { label: "Apply",            href: "/volunteer"          },
     { label: "Events",           href: "/events"  },
-    { label: "Volunteer Portal", href: "/portal"  },
-    { label: "Admin",            href: "/admin"   },
-    { label: "Login",            href: "/login"   },
+    { label: "Volunteer Portal", href: "/portal"    },
+    { label: "Admin",            href: "/admin"     },
+    { label: "Login",            href: "/login"     },
 ];
 
 export default function Header(): React.JSX.Element {
