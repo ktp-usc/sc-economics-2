@@ -12,6 +12,8 @@ const labelCls = "block text-sm font-semibold text-gray-900 mb-1.5";
 const sectionHeadCls =
     "text-lg font-bold mb-3 pb-2.5 border-b border-blue-200 text-[#1e3a5f]";
 
+const errorCls = "mt-1 text-xs text-red-600";
+
 const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
 interface FormState {
@@ -37,15 +39,36 @@ const EMPTY: FormState = {
     days: [], skills: "", experience: "", motivation: "", background: false, dataConsent: false
 };
 
+function validate(form: FormState): Partial<Record<keyof FormState, string>> {
+    const errors: Partial<Record<keyof FormState, string>> = {};
+    if (!form.firstName.trim())   errors.firstName   = "First name is required";
+    if (!form.lastName.trim())    errors.lastName    = "Last name is required";
+    if (!form.email.trim())       errors.email       = "Email is required";
+    if (!form.phone.trim())       errors.phone       = "Phone number is required";
+    if (!form.street.trim())      errors.street      = "Street address is required";
+    if (!form.city.trim())        errors.city        = "City is required";
+    if (!form.zip.trim())         errors.zip         = "ZIP code is required";
+    if (form.days.length === 0)   errors.days        = "Select at least one day";
+    if (!form.skills.trim())      errors.skills      = "Please describe your relevant skills";
+    if (!form.motivation.trim())  errors.motivation  = "Please tell us your motivation";
+    if (!form.background)         errors.background  = "Background check consent is required";
+    if (!form.dataConsent)        errors.dataConsent = "Data consent is required";
+    return errors;
+}
+
 export default function ApplyPage() {
     const [form, setForm] = useState<FormState>(EMPTY);
     const [submitted, setSubmitted] = useState(false);
+    const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
 
-    const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+    const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
         setForm((prev) => ({ ...prev, [k]: v }));
+        setErrors((prev) => { const next = { ...prev }; delete next[k]; return next; });
+    };
 
-    const toggleDay = (d: string) =>
+    const toggleDay = (d: string) => {
         set("days", form.days.includes(d) ? form.days.filter((x) => x !== d) : [...form.days, d]);
+    };
 
     if (submitted) {
         return (
@@ -60,7 +83,7 @@ export default function ApplyPage() {
                         be in touch within 5–7 business days.
                     </p>
                     <button
-                        onClick={() => { setSubmitted(false); setForm(EMPTY); }}
+                        onClick={() => { setSubmitted(false); setForm(EMPTY); setErrors({}); }}
                         className="px-6 py-2.5 rounded-lg text-white font-bold text-sm"
                         style={{ backgroundColor: "#003366" }}
                     >
@@ -112,11 +135,12 @@ export default function ApplyPage() {
                             <div key={key}>
                                 <label className={labelCls}>{lbl}</label>
                                 <input
-                                    className={inputCls}
+                                    className={inputCls + (errors[key] ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
                                     type={type}
                                     value={form[key] as string}
                                     onChange={(e) => set(key, e.target.value as FormState[typeof key])}
                                 />
+                                {errors[key] && <p className={errorCls}>{errors[key]}</p>}
                             </div>
                         ))}
                     </div>
@@ -126,12 +150,14 @@ export default function ApplyPage() {
                     <div className="flex flex-col gap-5 mb-9">
                         <div>
                             <label className={labelCls}>Street Address *</label>
-                            <input className={inputCls} value={form.street} onChange={(e) => set("street", e.target.value)} />
+                            <input className={inputCls + (errors.street ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")} value={form.street} onChange={(e) => set("street", e.target.value)} />
+                            {errors.street && <p className={errorCls}>{errors.street}</p>}
                         </div>
                         <div className="grid grid-cols-3 gap-5">
                             <div>
                                 <label className={labelCls}>City *</label>
-                                <input className={inputCls} value={form.city} onChange={(e) => set("city", e.target.value)} />
+                                <input className={inputCls + (errors.city ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")} value={form.city} onChange={(e) => set("city", e.target.value)} />
+                                {errors.city && <p className={errorCls}>{errors.city}</p>}
                             </div>
                             <div>
                                 <label className={labelCls}>State *</label>
@@ -152,7 +178,8 @@ export default function ApplyPage() {
                             </div>
                             <div>
                                 <label className={labelCls}>ZIP Code *</label>
-                                <input className={inputCls} value={form.zip} onChange={(e) => set("zip", e.target.value)} />
+                                <input className={inputCls + (errors.zip ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")} value={form.zip} onChange={(e) => set("zip", e.target.value)} />
+                                {errors.zip && <p className={errorCls}>{errors.zip}</p>}
                             </div>
                         </div>
                     </div>
@@ -176,6 +203,7 @@ export default function ApplyPage() {
                                 </label>
                             ))}
                         </div>
+                        {errors.days && <p className={errorCls}>{errors.days}</p>}
                     </div>
 
                     {/* Skills & Experience */}
@@ -184,11 +212,12 @@ export default function ApplyPage() {
                         <div>
                             <label className={labelCls}>Relevant Skills *</label>
                             <textarea
-                                className={inputCls + " min-h-[88px] resize-y"}
+                                className={inputCls + " min-h-[88px] resize-y" + (errors.skills ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
                                 value={form.skills}
                                 onChange={(e) => set("skills", e.target.value)}
                                 placeholder="e.g., Teaching, Event Planning, Marketing, Finance, Technology..."
                             />
+                            {errors.skills && <p className={errorCls}>{errors.skills}</p>}
                         </div>
                         <div>
                             <label className={labelCls}>Previous Volunteer Experience</label>
@@ -204,48 +233,59 @@ export default function ApplyPage() {
                                 Why do you want to volunteer with SC Economics? *
                             </label>
                             <textarea
-                                className={inputCls + " min-h-[88px] resize-y"}
+                                className={inputCls + " min-h-[88px] resize-y" + (errors.motivation ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
                                 value={form.motivation}
                                 onChange={(e) => set("motivation", e.target.value)}
                                 placeholder="Tell us what motivates you to support economic education..."
                             />
+                            {errors.motivation && <p className={errorCls}>{errors.motivation}</p>}
                         </div>
                     </div>
 
                     {/* Background Check */}
                     <h2 className={sectionHeadCls}>Background Check</h2>
                     <div className="mb-10 flex flex-col gap-3">
-                        <label className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-700">
-                            <input
-                                type="checkbox"
-                                checked={form.background}
-                                onChange={(e) => set("background", e.target.checked)}
-                                className="w-4 h-4 accent-[#003366]"
-                            />
-                            I consent to a background check as required for working with K-12 students *
-                        </label>
-                        <label className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-700">
-                            <input
-                                type="checkbox"
-                                checked={form.dataConsent}
-                                onChange={(e) => set("dataConsent", e.target.checked)}
-                                className="w-4 h-4 accent-[#003366]"
-                            />
-                            I consent to the collection and use of my personal data *
-                        </label>
+                        <div>
+                            <label className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={form.background}
+                                    onChange={(e) => set("background", e.target.checked)}
+                                    className="w-4 h-4 accent-[#003366]"
+                                />
+                                I consent to a background check as required for working with K-12 students *
+                            </label>
+                            {errors.background && <p className={errorCls + " ml-6"}>{errors.background}</p>}
+                        </div>
+                        <div>
+                            <label className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={form.dataConsent}
+                                    onChange={(e) => set("dataConsent", e.target.checked)}
+                                    className="w-4 h-4 accent-[#003366]"
+                                />
+                                I consent to the collection and use of my personal data *
+                            </label>
+                            {errors.dataConsent && <p className={errorCls + " ml-6"}>{errors.dataConsent}</p>}
+                        </div>
                     </div>
 
 
                     {/* Actions */}
                     <div className="flex justify-end gap-3">
                         <button
-                            onClick={() => setForm(EMPTY)}
+                            onClick={() => { setForm(EMPTY); setErrors({}); }}
                             className="px-6 py-2.5 rounded-lg font-semibold text-sm text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition"
                         >
                             Clear Form
                         </button>
                         <button
-                            onClick={() => setSubmitted(true)}
+                            onClick={() => {
+                                const errs = validate(form);
+                                if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+                                setSubmitted(true);
+                            }}
                             className="px-6 py-2.5 rounded-lg font-bold text-sm text-white transition hover:opacity-90"
                             style={{ backgroundColor: "#003366" }}
                         >

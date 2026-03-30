@@ -36,7 +36,7 @@ export default function Header(): React.JSX.Element {
                     {navItems.map(({ label, href }) => (
                         <button
                             key={href}
-                            onClick={() => navigate(href)}
+                            onClick={() => { if (pathname !== href) navigate(href); }}
                             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                             style={{
                                 backgroundColor: pathname === href ? "#1d4ed8" : "transparent",
