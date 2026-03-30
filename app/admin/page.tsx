@@ -137,6 +137,21 @@ const INITIAL_APPLICATIONS: Application[] = [
         status: "pending",
         appliedDate: "2025-03-12",
     },
+    {
+        id: 1,
+        firstName: "Tyler",
+        lastName: "Zolkos",
+        email: "tyler.zolkos@email.com",
+        phone: "(803) 555-0192",
+        city: "Columbia",
+        state: "South Carolina",
+        days: ["Tuesday", "Thursday", "Saturday"],
+        skills: "Just a cool guy with a passion for finance",
+        experience: "been alive for 21 years and have learned a lot about money in that time",
+        motivation: "Passionate about financial literacy for youth.",
+        status: "pending",
+        appliedDate: "2025-03-10",
+    },
 ];
 
 const INITIAL_VOLUNTEERS: Volunteer[] = [
