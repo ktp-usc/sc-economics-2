@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuthStore } from "@/lib/stores/auth";
 
 
 const GoogleIcon = () => (
@@ -70,13 +71,18 @@ function SocialButton({
 }
 
 
+// Temporary admin credential until backend auth is wired up
+const ADMIN_EMAIL = "admin@sceconomics.org";
+
 export default function LoginPage() {
     const [mode, setMode] = useState<"login" | "register">("login");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState("");
-    const [done, setDone] = useState(false);
+
+    const router = useRouter();
+    const login = useAuthStore((s) => s.login);
 
     const inputCls =
         "w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-100 text-gray-900 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition";
@@ -92,39 +98,15 @@ export default function LoginPage() {
             return;
         }
         // TODO: connect to backend auth endpoint
-        setDone(true);
+        const role = email.trim().toLowerCase() === ADMIN_EMAIL ? "admin" : "volunteer";
+        login(email.trim().toLowerCase(), role);
+        router.push(role === "admin" ? "/admin" : "/portal");
     };
 
     const handleSocial = (provider: string) => {
         // TODO: connect to backend OAuth endpoint e.g. /api/auth/[provider]
         console.log(`Sign in with ${provider}`);
     };
-
-    if (done) {
-        return (
-            <div
-                className="min-h-screen flex items-center justify-center"
-                style={{ background: "#f1f5f9" }}
-            >
-                <div className="bg-white rounded-2xl p-12 text-center max-w-sm shadow-md">
-                    <div className="text-5xl mb-4">👋</div>
-                    <h2 className="text-xl font-bold text-[#1e3a5f] mb-2">
-                        {mode === "login" ? "Welcome back!" : "Account created!"}
-                    </h2>
-                    <p className="text-gray-500 text-sm mb-6">
-                        You have successfully signed {mode === "login" ? "in" : "up"}.
-                    </p>
-                    <Link
-                        href="/"
-                        className="inline-block px-6 py-2.5 rounded-lg text-white font-bold text-sm"
-                        style={{ backgroundColor: "#003366" }}
-                    >
-                        Go to Home
-                    </Link>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div

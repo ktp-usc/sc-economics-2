@@ -1,8 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Trash2, PlusCircle, CalendarDays, MapPin, Users } from "lucide-react";
 import { useEventsStore } from "@/lib/stores/events";
+import { useAuthStore } from "@/lib/stores/auth";
 import {
     EventType, AgeGroup, Expertise, City,
     EXPERTISE_THEME, formatDate,
@@ -51,7 +53,8 @@ const EXPERTISES: Expertise[] = ["Finance", "Teaching", "Technology", "Business"
 
 export default function AdminPage() {
     const [mounted, setMounted] = useState(false);
-    useEffect(() => setMounted(true), []);
+    const router = useRouter();
+    const role = useAuthStore((s) => s.role);
 
     const events      = useEventsStore((s) => s.events);
     const addEvent    = useEventsStore((s) => s.addEvent);
@@ -61,6 +64,13 @@ export default function AdminPage() {
     const [errors, setErrors]         = useState<Partial<Record<keyof EventDraft, string>>>({});
     const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
     const [justAdded, setJustAdded]   = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+        if (role !== "admin") router.replace("/login");
+    }, [role, router]);
+
+    if (!mounted || role !== "admin") return null;
 
     const set = <K extends keyof EventDraft>(k: K, v: EventDraft[K]) =>
         setDraft((prev) => ({ ...prev, [k]: v }));

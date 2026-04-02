@@ -2,19 +2,24 @@
 
 import { usePathname } from "next/navigation";
 import { useNavigate } from "@/context/navigation";
+import { useAuthStore } from "@/lib/stores/auth";
 
-const navItems = [
+const publicNavItems = [
     { label: "Home",             href: "/" },
-    { label: "Apply",            href: "/volunteer"          },
-    { label: "Events",           href: "/events"  },
-    { label: "Volunteer Portal", href: "/portal"    },
-    { label: "Admin",            href: "/admin"     },
-    { label: "Login",            href: "/login"     },
+    { label: "Apply",            href: "/volunteer" },
+    { label: "Events",           href: "/events" },
+    { label: "Volunteer Portal", href: "/portal" },
 ];
 
 export default function Header(): React.JSX.Element {
     const pathname = usePathname();
     const navigate = useNavigate();
+    const { role, logout } = useAuthStore();
+
+    const handleLogout = () => {
+        logout();
+        navigate("/login");
+    };
 
     return (
         <header
@@ -32,19 +37,42 @@ export default function Header(): React.JSX.Element {
                 </button>
 
                 {/* Nav links */}
-                <nav className="flex gap-1">
-                    {navItems.map(({ label, href }) => (
+                <nav className="flex gap-1 items-center">
+                    {publicNavItems.map(({ label, href }) => {
+                        const resolvedLabel = (href === "/portal" && role === "admin") ? "Admin Dashboard" : label;
+                        const resolvedHref  = (href === "/portal" && role === "admin") ? "/admin" : href;
+                        return (
+                            <button
+                                key={href}
+                                onClick={() => { if (pathname !== resolvedHref) navigate(resolvedHref); }}
+                                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                style={{
+                                    backgroundColor: pathname === resolvedHref ? "#1d4ed8" : "transparent",
+                                }}
+                            >
+                                {resolvedLabel}
+                            </button>
+                        );
+                    })}
+
+                    {role === null ? (
                         <button
-                            key={href}
-                            onClick={() => { if (pathname !== href) navigate(href); }}
+                            onClick={() => { if (pathname !== "/login") navigate("/login"); }}
                             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                             style={{
-                                backgroundColor: pathname === href ? "#1d4ed8" : "transparent",
+                                backgroundColor: pathname === "/login" ? "#1d4ed8" : "transparent",
                             }}
                         >
-                            {label}
+                            Login
                         </button>
-                    ))}
+                    ) : (
+                        <button
+                            onClick={handleLogout}
+                            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors hover:bg-white/10"
+                        >
+                            Logout
+                        </button>
+                    )}
                 </nav>
             </div>
         </header>
