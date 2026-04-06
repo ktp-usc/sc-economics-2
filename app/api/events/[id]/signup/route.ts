@@ -9,14 +9,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Parse the event id from the URL — bail early if someone passes garbage
+    // Parse the event id from the URL but bail early if someone passes garbage
     const { id } = await params;
     const eventId = parseInt(id, 10);
     if (isNaN(eventId)) {
         return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
     }
 
-    // Parse the request body; req.json() throws on malformed JSON
+    // Parse the request body, req.json() throws on malformed JSON
     let body: unknown;
     try {
         body = await req.json();
@@ -48,7 +48,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
             return NextResponse.json({ error: "Event not found" }, { status: 404 });
         }
 
-        // Expertise is optional — store null instead of an empty string
+        // Expertise is optional, so store null instead of an empty string
         const signup = await db.eventSignup.create({
             data: {
                 eventId,
