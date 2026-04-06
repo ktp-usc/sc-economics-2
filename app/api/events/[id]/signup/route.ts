@@ -51,6 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         // Expertise is optional, so store null instead of an empty string
         const signup = await db.eventSignup.create({
             data: {
+                userId: parseInt(session.user.id, 10),
                 eventId,
                 why: (why as string).trim(),
                 fromTime: (fromTime as string).trim(),
