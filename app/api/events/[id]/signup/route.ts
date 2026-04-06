@@ -57,7 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                 fromTime: (fromTime as string).trim(),
                 toTime: (toTime as string).trim(),
                 certificate: certificate === true || certificate === "yes",
-                expertise: typeof expertise === "string" && expertise.trim() ? expertise.trim() : null,
+                expertise: typeof expertise === "string" && expertise.trim() ? expertise.trim() : undefined,
             },
         });
 
