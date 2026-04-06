@@ -83,6 +83,7 @@ model Event {
 model EventSignup {
   id          Int      @id @default(autoincrement())
   eventId     Int
+  userId      Int
   why         String
   fromTime    String
   toTime      String
