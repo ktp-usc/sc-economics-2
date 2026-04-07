@@ -55,13 +55,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
         const signup = await db.eventSignup.create({
             data: {
+                userId: session.user.id,
                 eventId,
-                userId,
                 why: (why as string).trim(),
                 fromTime: (fromTime as string).trim(),
                 toTime: (toTime as string).trim(),
                 certificate: certificate === true || certificate === "yes",
-                expertise: typeof expertise === "string" && expertise.trim() ? expertise.trim() : null,
+                expertise: typeof expertise === "string" && expertise.trim() ? expertise.trim() : undefined,
             },
         });
 

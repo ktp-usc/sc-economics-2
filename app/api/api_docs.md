@@ -1,5 +1,13 @@
 # API docs
 
+## Applications
+POST /api/applications
+- Purpose: Submit a volunteer application
+- Request body: { firstName, lastName, email, phone, street, city, state, zip, availability (string[]), skills, experience?, motivation, backgroundConsent (bool), dataConsent (bool) }
+- Success: { data: application object } 201
+- Errors: 400 missing/invalid fields, 400 consent not given, 500 server error
+
+
 ## Auth
 POST /api/auth/login
 - Purpose: Admin login

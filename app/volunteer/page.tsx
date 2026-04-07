@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CheckCircle } from "lucide-react";
+import { postJSON } from "@/client/api/jsonutils";
 import Image from "next/image";
 
 const inputCls =
@@ -60,6 +61,8 @@ export default function ApplyPage() {
     const [form, setForm] = useState<FormState>(EMPTY);
     const [submitted, setSubmitted] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
+    const [submitting, setSubmitting] = useState(false);
+    const [serverError, setServerError] = useState<string | null>(null);
 
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
         setForm((prev) => ({ ...prev, [k]: v }));
@@ -273,6 +276,9 @@ export default function ApplyPage() {
 
 
                     {/* Actions */}
+                    {serverError && (
+                        <p className="mb-4 text-sm text-red-600 text-right">{serverError}</p>
+                    )}
                     <div className="flex justify-end gap-3">
                         <button
                             onClick={() => { setForm(EMPTY); setErrors({}); }}
@@ -281,15 +287,40 @@ export default function ApplyPage() {
                             Clear Form
                         </button>
                         <button
-                            onClick={() => {
+                            onClick={async () => {
                                 const errs = validate(form);
                                 if (Object.keys(errs).length > 0) { setErrors(errs); return; }
-                                setSubmitted(true);
+                                setSubmitting(true);
+                                setServerError(null);
+                                try {
+                                    await postJSON("/api/applications", {
+                                        firstName:         form.firstName,
+                                        lastName:          form.lastName,
+                                        email:             form.email,
+                                        phone:             form.phone,
+                                        street:            form.street,
+                                        city:              form.city,
+                                        state:             form.state,
+                                        zip:               form.zip,
+                                        availability:      form.days,
+                                        skills:            form.skills,
+                                        experience:        form.experience,
+                                        motivation:        form.motivation,
+                                        backgroundConsent: form.background,
+                                        dataConsent:       form.dataConsent,
+                                    });
+                                    setSubmitted(true);
+                                } catch (err) {
+                                    setServerError(err instanceof Error ? err.message : "Submission failed. Please try again.");
+                                } finally {
+                                    setSubmitting(false);
+                                }
                             }}
-                            className="px-6 py-2.5 rounded-lg font-bold text-sm text-white transition hover:opacity-90"
+                            disabled={submitting}
+                            className="px-6 py-2.5 rounded-lg font-bold text-sm text-white transition hover:opacity-90 disabled:opacity-60 disabled:cursor-not-allowed"
                             style={{ backgroundColor: "#003366" }}
                         >
-                            Submit Application
+                            {submitting ? "Submitting…" : "Submit Application"}
                         </button>
                     </div>
                 </div>

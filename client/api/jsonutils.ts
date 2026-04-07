@@ -23,14 +23,18 @@ export async function postJSON<T>(url: string, body: unknown): Promise<T> {
         body: JSON.stringify(body)
     });
 
-    const data: unknown = await res.json();
+    const text = await res.text();
+    let data: unknown = null;
+    try { data = text ? JSON.parse(text) : null; } catch { /* non-JSON response */ }
 
-    const message =
-        isRecord(data) && typeof data.message === 'string'
-            ? data.message
-            : 'request failed';
+    if (!res.ok) {
+        const message =
+            isRecord(data) && typeof data.error === 'string'
+                ? data.error
+                : `HTTP ${res.status} — server returned non-JSON response`;
+        throw new Error(message);
+    }
 
-    if (!res.ok) throw new Error(message);
     return data as T;
 }
 
