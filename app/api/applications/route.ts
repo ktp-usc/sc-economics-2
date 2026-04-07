@@ -71,11 +71,11 @@ export async function POST(req: NextRequest) {
                 city:              (city as string).trim(),
                 state:             (state as string).trim(),
                 zip:               (zip as string).trim(),
-                availability:      availability as string[],
+                availableDays:     availability as string[],
                 skills:            (skills as string).trim(),
                 experience:        typeof experience === "string" && experience.trim() ? experience.trim() : null,
                 motivation:        (motivation as string).trim(),
-                backgroundConsent: true,
+                backgroundCheck:   true,
                 dataConsent:       true,
             },
         });

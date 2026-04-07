@@ -49,7 +49,8 @@ const selectCls =
 
 export default function EventsPage() {
     // Prevent SSR/localStorage hydration mismatch
-    const [mounted, setMounted] = useState(false);
+    const [mounted, setMounted] = useState<boolean>(false);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     useEffect(() => setMounted(true), []);
 
     const events      = useEventsStore((s) => s.events);
@@ -235,14 +236,14 @@ export default function EventsPage() {
                                                     isSignedUp
                                                         ? "bg-white/90 text-green-700"
                                                         : isFull
-                                                        ? "bg-black/30 text-white"
-                                                        : "bg-white/20 text-white"
+                                                            ? "bg-black/30 text-white"
+                                                            : "bg-white/20 text-white"
                                                 }`}>
                                                     {isSignedUp
                                                         ? "✓ Signed Up"
                                                         : isFull
-                                                        ? "Full"
-                                                        : `${remaining} spot${remaining !== 1 ? "s" : ""} left`}
+                                                            ? "Full"
+                                                            : `${remaining} spot${remaining !== 1 ? "s" : ""} left`}
                                                 </div>
                                             </div>
 
@@ -290,8 +291,8 @@ export default function EventsPage() {
                                                         isSignedUp
                                                             ? "bg-green-50 text-green-700 border border-green-200 cursor-default"
                                                             : isFull
-                                                            ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                                                            : "text-white hover:opacity-90"
+                                                                ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                                                                : "text-white hover:opacity-90"
                                                     }`}
                                                     style={!isFull && !isSignedUp ? { backgroundColor: "#003366" } : undefined}
                                                 >
