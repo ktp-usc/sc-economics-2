@@ -3,20 +3,19 @@ import { db } from "@/lib/db";
 import { auth } from "@/lib/auth/server";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-    // Verify the user is authenticated via Neon Auth session
     const { data: session } = await auth.getSession();
     if (!session?.user) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Parse the event id from the URL but bail early if someone passes garbage
+    const userId = session.user.id;
+
     const { id } = await params;
     const eventId = parseInt(id, 10);
     if (isNaN(eventId)) {
         return NextResponse.json({ error: "Invalid event id" }, { status: 400 });
     }
 
-    // Parse the request body, req.json() throws on malformed JSON
     let body: unknown;
     try {
         body = await req.json();
@@ -30,7 +29,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
     const { why, fromTime, toTime, certificate, expertise } = body as Record<string, unknown>;
 
-    // Collect all missing fields at once so the client gets a useful error
     const missing: string[] = [];
     if (!why || typeof why !== "string" || !why.trim()) missing.push("why");
     if (!fromTime || typeof fromTime !== "string" || !fromTime.trim()) missing.push("fromTime");
@@ -42,16 +40,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     }
 
     try {
-        // Make sure the event actually exists before trying to sign up
         const event = await db.event.findUnique({ where: { id: eventId } });
         if (!event) {
             return NextResponse.json({ error: "Event not found" }, { status: 404 });
         }
 
-        // Expertise is optional, so store null instead of an empty string
+        // Prevent duplicate signups
+        const existing = await db.eventSignup.findFirst({
+            where: { eventId, userId },
+        });
+        if (existing) {
+            return NextResponse.json({ error: "Already signed up for this event" }, { status: 409 });
+        }
+
         const signup = await db.eventSignup.create({
             data: {
-                userId: parseInt(session.user.id, 10),
+                userId: session.user.id,
                 eventId,
                 why: (why as string).trim(),
                 fromTime: (fromTime as string).trim(),
