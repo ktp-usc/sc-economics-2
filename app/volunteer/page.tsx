@@ -1,173 +1,299 @@
 "use client";
 
-import { useNavigate } from "@/context/navigation";
-import { ArrowRight, Heart, CheckCircle2 } from "lucide-react";
+import { useState } from "react";
+import { CheckCircle } from "lucide-react";
+import Image from "next/image";
 
-// Source: SC Economics 2024–2025 Annual Report
-const heroStats = [
-    { value: "65",    label: "of 72 SC Public School Districts Served" },
-    { value: "1,030", label: "Unique SC Teachers Served by Our Programs" },
-    { value: "143",   label: "Events for SC Educators Across the State" },
-    { value: "313",   label: "Professional Learning Hours Delivered" },
-];
+const inputCls =
+    "w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-100 text-gray-900 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition";
 
-// Source: SC Economics 2024–2025 Annual Report
-const impactStats = [
-    {
-        stat: "11,348",
-        label: "Students Reached Through Student Contests",
-        detail: "Total students reached via the Stock Market Game, Finance Challenge, Economics Challenge, and other student contests in 2024–25.",
-        accent: "#003366",
-    },
-    {
-        stat: "5,104",
-        label: "SC Teachers in Programs or Contests",
-        detail: "Number of SC teachers who participated in at least one SC Economics program or contest in 2024–25.",
-        accent: "#1d4ed8",
-    },
-    {
-        stat: "93.8%",
-        label: "Of Every Dollar Goes to Programs",
-        detail: "Program expenses as a percentage of total spending in 2024–25. General & administrative costs: 4.1%. Fundraising: 2.1%.",
-        accent: "#003366",
-    },
-];
+const labelCls = "block text-sm font-semibold text-gray-900 mb-1.5";
 
-export default function VolunteerPage() {
-    const navigate = useNavigate();
+const sectionHeadCls =
+    "text-lg font-bold mb-3 pb-2.5 border-b border-blue-200 text-[#1e3a5f]";
 
-    return (
-        <div className="min-h-screen bg-white">
+const errorCls = "mt-1 text-xs text-red-600";
 
-            {/* ── HERO ── */}
-            <section
-                className="relative overflow-hidden text-white"
-                style={{ background: "linear-gradient(135deg, #001f4d 0%, #003366 50%, #1d4ed8 100%)" }}
-            >
-                <div
-                    className="absolute -top-24 -right-24 w-120 h-120 rounded-full opacity-10"
-                    style={{ background: "radial-gradient(circle, #60a5fa, transparent)" }}
-                />
-                <div
-                    className="absolute bottom-0 -left-16 w-[320px] h-80 rounded-full opacity-[0.07]"
-                    style={{ background: "radial-gradient(circle, #93c5fd, transparent)" }}
-                />
+const DAYS = ["Monday","Tuesday","Wednesday","Thursday","Friday","Saturday","Sunday"];
 
-                <div className="relative max-w-6xl mx-auto px-6 py-24 md:py-32 grid md:grid-cols-2 gap-12 items-center">
-                    <div>
-                        <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
-                            <Heart size={14} className="text-blue-300" />
-                            Serving 65 of 72 SC School Districts
-                        </div>
-                        <h1 className="text-4xl md:text-5xl font-extrabold leading-tight mb-5 tracking-tight">
-                            Teach a Child About Money.{" "}
-                            <span className="text-blue-300">Change Their Life.</span>
-                        </h1>
-                        <p className="text-blue-100 text-lg leading-relaxed mb-8 max-w-xl">
-                            SC Economics gives South Carolina&apos;s K-12 students the economic and financial
-                            literacy skills to thrive — and it&apos;s powered by volunteers like you.
-                        </p>
-                        <div className="flex flex-wrap gap-3">
-                            <button
-                                onClick={() => navigate("/")}
-                                className="inline-flex items-center gap-2 bg-white text-[#003366] font-bold px-7 py-3.5 rounded-xl text-base hover:bg-blue-50 transition-colors shadow-lg"
-                            >
-                                Apply to Volunteer <ArrowRight size={18} />
-                            </button>
-                        </div>
-                    </div>
+interface FormState {
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    street: string;
+    city: string;
+    state: string;
+    zip: string;
+    days: string[];
+    skills: string;
+    experience: string;
+    motivation: string;
+    background: boolean;
+    dataConsent: boolean;
+}
 
-                    {/* Stats — source: SC Economics 2024–25 Annual Report */}
-                    <div className="grid grid-cols-2 gap-4">
-                        {heroStats.map(({ value, label }) => (
-                            <div
-                                key={label}
-                                className="bg-white/10 border border-white/20 backdrop-blur rounded-2xl p-6 text-center"
-                            >
-                                <div className="text-4xl font-extrabold text-white mb-1">{value}</div>
-                                <div className="text-blue-200 text-sm font-medium">{label}</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </section>
+const EMPTY: FormState = {
+    firstName: "", lastName: "", email: "", phone: "",
+    street: "", city: "", state: "South Carolina", zip: "",
+    days: [], skills: "", experience: "", motivation: "", background: false, dataConsent: false
+};
 
-            {/* ── IMPACT ── */}
-            <section className="py-20 bg-[#f5f9ff]">
-                <div className="max-w-5xl mx-auto px-6">
-                    <div className="text-center mb-4">
-                        <h2 className="text-3xl font-extrabold text-[#1e3a5f] mb-3">Why Your Time Matters</h2>
-                        <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-                            Here&apos;s what SC Economics accomplished in the 2024–25 school year — made
-                            possible by the support of volunteers and donors across South Carolina.
-                        </p>
-                    </div>
-                    <p className="text-center text-xs text-gray-400 mb-10 italic">
-                        All figures from the SC Economics 2024–2025 Annual Report
-                    </p>
+function validate(form: FormState): Partial<Record<keyof FormState, string>> {
+    const errors: Partial<Record<keyof FormState, string>> = {};
+    if (!form.firstName.trim())   errors.firstName   = "First name is required";
+    if (!form.lastName.trim())    errors.lastName    = "Last name is required";
+    if (!form.email.trim())       errors.email       = "Email is required";
+    if (!form.phone.trim())       errors.phone       = "Phone number is required";
+    if (!form.street.trim())      errors.street      = "Street address is required";
+    if (!form.city.trim())        errors.city        = "City is required";
+    if (!form.zip.trim())         errors.zip         = "ZIP code is required";
+    if (form.days.length === 0)   errors.days        = "Select at least one day";
+    if (!form.skills.trim())      errors.skills      = "Please describe your relevant skills";
+    if (!form.motivation.trim())  errors.motivation  = "Please tell us your motivation";
+    if (!form.background)         errors.background  = "Background check consent is required";
+    if (!form.dataConsent)        errors.dataConsent = "Data consent is required";
+    return errors;
+}
 
-                    <div className="grid md:grid-cols-3 gap-6">
-                        {impactStats.map(({ stat, label, detail, accent }) => (
-                            <div
-                                key={stat}
-                                className="bg-white rounded-2xl p-8 shadow-sm border border-blue-50 text-center"
-                            >
-                                <div className="text-5xl font-extrabold mb-2" style={{ color: accent }}>
-                                    {stat}
-                                </div>
-                                <div className="font-bold text-[#1e3a5f] text-sm mb-2">{label}</div>
-                                <p className="text-gray-400 text-xs leading-relaxed">{detail}</p>
-                            </div>
-                        ))}
-                    </div>
+export default function ApplyPage() {
+    const [form, setForm] = useState<FormState>(EMPTY);
+    const [submitted, setSubmitted] = useState(false);
+    const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
 
-                    <div className="mt-12 bg-linear-to-r from-[#003366] to-[#1d4ed8] rounded-2xl p-8 text-white text-center">
-                        <p className="text-xl font-semibold leading-relaxed max-w-3xl mx-auto">
-                            In 2024–25, SC Economics served{" "}
-                            <strong className="text-blue-200">1,030 unique teachers</strong>, ran{" "}
-                            <strong className="text-blue-200">143 educator events</strong>, and reached{" "}
-                            <strong className="text-blue-200">11,348 students</strong> through student
-                            contests — across 65 of South Carolina&apos;s 72 public school districts.
-                        </p>
-                        <p className="text-blue-300 text-sm mt-4 font-medium">
-                            — SC Economics 2024–2025 Annual Report
-                        </p>
-                    </div>
-                </div>
-            </section>
+    const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
+        setForm((prev) => ({ ...prev, [k]: v }));
+        setErrors((prev) => { const next = { ...prev }; delete next[k]; return next; });
+    };
 
-            {/* ── CTA ── */}
-            <section
-                className="py-24 text-white text-center relative overflow-hidden"
-                style={{ background: "linear-gradient(135deg, #001f4d 0%, #003366 60%, #1d4ed8 100%)" }}
-            >
-                <div
-                    className="absolute top-0 left-0 right-0 bottom-0 opacity-10"
-                    style={{
-                        backgroundImage:
-                            "radial-gradient(circle at 20% 50%, #60a5fa 0%, transparent 60%), radial-gradient(circle at 80% 50%, #3b82f6 0%, transparent 60%)",
-                    }}
-                />
-                <div className="relative max-w-3xl mx-auto px-6">
-                    <div className="inline-flex items-center gap-2 bg-white/10 border border-white/20 rounded-full px-4 py-1.5 text-sm font-medium mb-6">
-                        <CheckCircle2 size={14} className="text-green-300" />
-                        Make an Impact in South Carolina
-                    </div>
-                    <h2 className="text-4xl md:text-5xl font-extrabold mb-5 leading-tight">
-                        Ready to Make a Difference?
+    const toggleDay = (d: string) => {
+        set("days", form.days.includes(d) ? form.days.filter((x) => x !== d) : [...form.days, d]);
+    };
+
+    if (submitted) {
+        return (
+            <div className="min-h-[calc(100vh-70px)] bg-gray-50 flex items-center justify-center">
+                <div className="bg-white rounded-2xl p-12 text-center max-w-md shadow-md">
+                    <CheckCircle className="w-14 h-14 text-green-600 mx-auto mb-4" />
+                    <h2 className="text-2xl font-bold text-[#1e3a5f] mb-3">
+                        Application Submitted!
                     </h2>
-                    <p className="text-blue-200 text-xl mb-10 max-w-xl mx-auto leading-relaxed">
-                        11,348 South Carolina students were reached through our programs last year.
-                        Help us reach even more in 2025–26.
+                    <p className="text-gray-500 leading-relaxed mb-6">
+                        Thank you for applying to volunteer with SC Economics. Our team will
+                        be in touch within 5–7 business days.
                     </p>
                     <button
-                        onClick={() => navigate("/")}
-                        className="inline-flex items-center gap-3 bg-white text-[#003366] font-extrabold px-10 py-4 rounded-2xl text-lg hover:bg-blue-50 transition-colors shadow-2xl"
+                        onClick={() => { setSubmitted(false); setForm(EMPTY); setErrors({}); }}
+                        className="px-6 py-2.5 rounded-lg text-white font-bold text-sm"
+                        style={{ backgroundColor: "#003366" }}
                     >
-                        Start Your Application <ArrowRight size={22} />
+                        Submit Another
                     </button>
                 </div>
-            </section>
+            </div>
+        );
+    }
+
+    return (
+        <div className="min-h-[calc(100vh-70px)] bg-gray-50">
+            {/* Banner */}
+            <div
+                className="text-white py-10 px-4"
+                style={{ background: "linear-gradient(135deg, #003366 0%, #1d4ed8 100%)" }}
+            >
+                <div className="max-w-3xl mx-auto flex items-center gap-6">
+                    <img
+                        src="/SC-Econ-logo.png"
+                        alt="SC Economics"
+                        className="h-14 w-auto shrink-0"
+                    />
+                    <div>
+                        <h1 className="text-3xl font-bold mb-2">Volunteer Application</h1>
+                        <p className="text-blue-200 text-base">
+                            Join us in improving economic and personal finance education for K-12
+                            students across South Carolina
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            {/* Form card */}
+            <div className="max-w-3xl mx-auto px-4 py-10">
+                <div className="bg-white rounded-xl p-10 shadow-sm">
+
+                    {/* Personal Information */}
+                    <h2 className={sectionHeadCls}>Personal Information</h2>
+                    <div className="grid grid-cols-2 gap-5 mb-9">
+                        {(
+                            [
+                                ["First Name *",    "firstName", "text"],
+                                ["Last Name *",     "lastName",  "text"],
+                                ["Email Address *", "email",     "email"],
+                                ["Phone Number *",  "phone",     "tel"],
+                            ] as [string, keyof FormState, string][]
+                        ).map(([lbl, key, type]) => (
+                            <div key={key}>
+                                <label className={labelCls}>{lbl}</label>
+                                <input
+                                    className={inputCls + (errors[key] ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
+                                    type={type}
+                                    value={form[key] as string}
+                                    onChange={(e) => set(key, e.target.value as FormState[typeof key])}
+                                />
+                                {errors[key] && <p className={errorCls}>{errors[key]}</p>}
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Address */}
+                    <h2 className={sectionHeadCls}>Address</h2>
+                    <div className="flex flex-col gap-5 mb-9">
+                        <div>
+                            <label className={labelCls}>Street Address *</label>
+                            <input className={inputCls + (errors.street ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")} value={form.street} onChange={(e) => set("street", e.target.value)} />
+                            {errors.street && <p className={errorCls}>{errors.street}</p>}
+                        </div>
+                        <div className="grid grid-cols-3 gap-5">
+                            <div>
+                                <label className={labelCls}>City *</label>
+                                <input className={inputCls + (errors.city ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")} value={form.city} onChange={(e) => set("city", e.target.value)} />
+                                {errors.city && <p className={errorCls}>{errors.city}</p>}
+                            </div>
+                            <div>
+                                <label className={labelCls}>State *</label>
+                                <div className="relative">
+                                    <select
+                                        className={inputCls + " appearance-none pr-8 cursor-pointer"}
+                                        value={form.state}
+                                        onChange={(e) => set("state", e.target.value)}
+                                    >
+                                        {["South Carolina","North Carolina","Georgia","Virginia","Other"].map((s) => (
+                                            <option key={s}>{s}</option>
+                                        ))}
+                                    </select>
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">
+                    ▾
+                  </span>
+                                </div>
+                            </div>
+                            <div>
+                                <label className={labelCls}>ZIP Code *</label>
+                                <input className={inputCls + (errors.zip ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")} value={form.zip} onChange={(e) => set("zip", e.target.value)} />
+                                {errors.zip && <p className={errorCls}>{errors.zip}</p>}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Availability */}
+                    <h2 className={sectionHeadCls}>Availability</h2>
+                    <div className="mb-9">
+                        <label className={labelCls + " mb-3.5"}>
+                            What days are you available? *
+                        </label>
+                        <div className="grid grid-cols-4 gap-2.5">
+                            {DAYS.map((d) => (
+                                <label key={d} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+                                    <input
+                                        type="checkbox"
+                                        checked={form.days.includes(d)}
+                                        onChange={() => toggleDay(d)}
+                                        className="w-4 h-4 accent-[#003366]"
+                                    />
+                                    {d}
+                                </label>
+                            ))}
+                        </div>
+                        {errors.days && <p className={errorCls}>{errors.days}</p>}
+                    </div>
+
+                    {/* Skills & Experience */}
+                    <h2 className={sectionHeadCls}>Skills & Experience</h2>
+                    <div className="flex flex-col gap-5 mb-9">
+                        <div>
+                            <label className={labelCls}>Relevant Skills *</label>
+                            <textarea
+                                className={inputCls + " min-h-[88px] resize-y" + (errors.skills ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
+                                value={form.skills}
+                                onChange={(e) => set("skills", e.target.value)}
+                                placeholder="e.g., Teaching, Event Planning, Marketing, Finance, Technology..."
+                            />
+                            {errors.skills && <p className={errorCls}>{errors.skills}</p>}
+                        </div>
+                        <div>
+                            <label className={labelCls}>Previous Volunteer Experience</label>
+                            <textarea
+                                className={inputCls + " min-h-[88px] resize-y"}
+                                value={form.experience}
+                                onChange={(e) => set("experience", e.target.value)}
+                                placeholder="Please describe any previous volunteer or teaching experience..."
+                            />
+                        </div>
+                        <div>
+                            <label className={labelCls}>
+                                Why do you want to volunteer with SC Economics? *
+                            </label>
+                            <textarea
+                                className={inputCls + " min-h-[88px] resize-y" + (errors.motivation ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
+                                value={form.motivation}
+                                onChange={(e) => set("motivation", e.target.value)}
+                                placeholder="Tell us what motivates you to support economic education..."
+                            />
+                            {errors.motivation && <p className={errorCls}>{errors.motivation}</p>}
+                        </div>
+                    </div>
+
+                    {/* Background Check */}
+                    <h2 className={sectionHeadCls}>Background Check</h2>
+                    <div className="mb-10 flex flex-col gap-3">
+                        <div>
+                            <label className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={form.background}
+                                    onChange={(e) => set("background", e.target.checked)}
+                                    className="w-4 h-4 accent-[#003366]"
+                                />
+                                I consent to a background check as required for working with K-12 students *
+                            </label>
+                            {errors.background && <p className={errorCls + " ml-6"}>{errors.background}</p>}
+                        </div>
+                        <div>
+                            <label className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-700">
+                                <input
+                                    type="checkbox"
+                                    checked={form.dataConsent}
+                                    onChange={(e) => set("dataConsent", e.target.checked)}
+                                    className="w-4 h-4 accent-[#003366]"
+                                />
+                                I consent to the collection and use of my personal data *
+                            </label>
+                            {errors.dataConsent && <p className={errorCls + " ml-6"}>{errors.dataConsent}</p>}
+                        </div>
+                    </div>
+
+
+                    {/* Actions */}
+                    <div className="flex justify-end gap-3">
+                        <button
+                            onClick={() => { setForm(EMPTY); setErrors({}); }}
+                            className="px-6 py-2.5 rounded-lg font-semibold text-sm text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 transition"
+                        >
+                            Clear Form
+                        </button>
+                        <button
+                            onClick={() => {
+                                const errs = validate(form);
+                                if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+                                setSubmitted(true);
+                            }}
+                            className="px-6 py-2.5 rounded-lg font-bold text-sm text-white transition hover:opacity-90"
+                            style={{ backgroundColor: "#003366" }}
+                        >
+                            Submit Application
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
