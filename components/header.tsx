@@ -2,19 +2,40 @@
 
 import { usePathname } from "next/navigation";
 import { useNavigate } from "@/context/navigation";
+import { authClient } from "@/lib/auth/client";
+import { LogOut } from "lucide-react";
 
+/**
+ * Public nav items — always visible regardless of auth state.
+ * Protected pages (Apply, Events, Portal, Admin) are still linked
+ * but the middleware will redirect to /login if the user isn't
+ * authenticated, so we don't need to hide them here.
+ */
 const navItems = [
     { label: "Home",             href: "/" },
-    { label: "Apply",            href: "/volunteer"          },
-    { label: "Events",           href: "/events"  },
-    { label: "Volunteer Portal", href: "/portal"    },
-    { label: "Admin",            href: "/admin"     },
-    { label: "Login",            href: "/login"     },
+    { label: "Apply",            href: "/volunteer" },
+    { label: "Events",           href: "/events" },
+    { label: "Volunteer Portal", href: "/portal" },
+    { label: "Admin",            href: "/admin" },
 ];
 
 export default function Header(): React.JSX.Element {
     const pathname = usePathname();
     const navigate = useNavigate();
+
+    // useSession returns { data, isPending } — data is null when logged out
+    const { data: session, isPending } = authClient.useSession();
+    const isLoggedIn = !!session?.user;
+
+    /**
+     * Signs the user out via the Neon Auth client, then navigates
+     * to the home page. The fetchOptions callback lets us run
+     * navigation logic after the sign-out response completes.
+     */
+    const handleSignOut = async () => {
+        await authClient.signOut();
+        navigate("/");
+    };
 
     return (
         <header
@@ -31,8 +52,8 @@ export default function Header(): React.JSX.Element {
                     />
                 </button>
 
-                {/* Nav links */}
-                <nav className="flex gap-1">
+                {/* Nav links + auth controls */}
+                <nav className="flex items-center gap-1">
                     {navItems.map(({ label, href }) => (
                         <button
                             key={href}
@@ -45,6 +66,35 @@ export default function Header(): React.JSX.Element {
                             {label}
                         </button>
                     ))}
+
+                    {/* Auth section - shows Login link OR user info + logout */}
+                    {!isPending && (
+                        isLoggedIn ? (
+                            <div className="flex items-center gap-2 ml-2 pl-3 border-l border-white/20">
+                                <span className="text-sm text-blue-200 hidden md:inline">
+                                    {session.user.name || session.user.email}
+                                </span>
+                                <button
+                                    onClick={handleSignOut}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors"
+                                    title="Sign out"
+                                >
+                                    <LogOut className="w-4 h-4" />
+                                    <span className="hidden md:inline">Sign Out</span>
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                onClick={() => { if (pathname !== "/login") navigate("/login"); }}
+                                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                                style={{
+                                    backgroundColor: pathname === "/login" ? "#1d4ed8" : "transparent",
+                                }}
+                            >
+                                Login
+                            </button>
+                        )
+                    )}
                 </nav>
             </div>
         </header>
