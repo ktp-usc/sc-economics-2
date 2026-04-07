@@ -1,17 +1,21 @@
-import { cookies } from "next/headers";
-import { prisma } from "@/lib/prisma";
+import { auth } from "@/lib/auth/server";
+import { db } from "@/lib/db";
 import type { User } from "@prisma/client";
 
+/**
+ * Returns the Prisma User record if the current Neon Auth session belongs
+ * to an admin, otherwise returns null.
+ *
+ * Works in Server Components, API Routes, and Server Actions.
+ */
 export async function getAuthenticatedAdmin(): Promise<User | null> {
-    const cookieStore = await cookies();
-    const token = cookieStore.get("session_token")?.value;
+    const { data: session } = await auth.getSession();
+    if (!session?.user) return null;
 
-    if (!token) return null;
+    const email = (session.user as { email?: string }).email;
+    if (!email) return null;
 
-    const user = await prisma.user.findUnique({
-        where: { sessionToken: token },
-    });
-
+    const user = await db.user.findUnique({ where: { email } });
     if (!user || user.role !== "admin") return null;
 
     return user;

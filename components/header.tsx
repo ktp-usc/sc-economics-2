@@ -1,40 +1,66 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useNavigate } from "@/context/navigation";
 import { authClient } from "@/lib/auth/client";
 import { LogOut } from "lucide-react";
 
-/**
- * Public nav items — always visible regardless of auth state.
- * Protected pages (Apply, Events, Portal, Admin) are still linked
- * but the middleware will redirect to /login if the user isn't
- * authenticated, so we don't need to hide them here.
- */
-const navItems = [
+interface Me {
+    email: string;
+    name: string | null;
+    role: string;
+}
+
+const VOLUNTEER_NAV = [
     { label: "Home",             href: "/" },
     { label: "Apply",            href: "/volunteer" },
     { label: "Events",           href: "/events" },
     { label: "Volunteer Portal", href: "/portal" },
-    { label: "Admin",            href: "/admin" },
+];
+
+const ADMIN_EXTRA = { label: "Admin", href: "/admin" };
+
+// When not logged in, Apply points directly to /login (auth required to apply).
+// This prevents the /volunteer → /login → /volunteer redirect loop that causes
+// a blank page when the user clicks Apply a second time from the login page.
+const PUBLIC_NAV = [
+    { label: "Home",  href: "/" },
+    { label: "Apply", href: "/login" },
 ];
 
 export default function Header(): React.JSX.Element {
     const pathname = usePathname();
     const navigate = useNavigate();
 
-    // useSession returns { data, isPending } — data is null when logged out
-    const { data: session, isPending } = authClient.useSession();
-    const isLoggedIn = !!session?.user;
+    // Re-check session on every pathname change so the header stays in sync
+    // immediately after login (server-action redirect) without needing a
+    // manual page refresh. Falls back to null when unauthenticated.
+    const [me, setMe]           = useState<Me | null>(null);
+    const [isPending, setIsPending] = useState(true);
 
-    /**
-     * Signs the user out via the Neon Auth client, then navigates
-     * to the home page. The fetchOptions callback lets us run
-     * navigation logic after the sign-out response completes.
-     */
+    useEffect(() => {
+        setIsPending(true);
+        fetch("/api/me")
+            .then((r) => (r.ok ? (r.json() as Promise<Me>) : null))
+            .then((data) => { setMe(data); setIsPending(false); })
+            .catch(() => { setMe(null); setIsPending(false); });
+    }, [pathname]);
+
+    const isLoggedIn = !!me;
+    const role = me?.role ?? null;
+
+    const navItems = isLoggedIn
+        ? role === "admin"
+            ? [...VOLUNTEER_NAV, ADMIN_EXTRA]
+            : VOLUNTEER_NAV
+        : PUBLIC_NAV;
+
     const handleSignOut = async () => {
         await authClient.signOut();
         navigate("/");
+        // pathname change caused by navigate() will re-trigger the useEffect
+        // above, which will call /api/me → 401 → me=null → header resets.
     };
 
     return (
@@ -57,6 +83,8 @@ export default function Header(): React.JSX.Element {
                     {navItems.map(({ label, href }) => (
                         <button
                             key={href}
+                            // Guard prevents triggering a fade-out when already
+                            // on this page (which would leave the page blank).
                             onClick={() => { if (pathname !== href) navigate(href); }}
                             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                             style={{
@@ -67,34 +95,35 @@ export default function Header(): React.JSX.Element {
                         </button>
                     ))}
 
-                    {/* Auth section - shows Login link OR user info + logout */}
-                    {!isPending && (
-                        isLoggedIn ? (
-                            <div className="flex items-center gap-2 ml-2 pl-3 border-l border-white/20">
-                                <span className="text-sm text-blue-200 hidden md:inline">
-                                    {session.user.name || session.user.email}
-                                </span>
+                    {/* Auth section */}
+                    {/* Auth section — always reserve space so nav items don't shift
+                        when the Login button appears after the /api/me fetch */}
+                    <div className="ml-3 pl-3 border-l border-white/30 flex items-center min-w-[80px]">
+                        {!isPending && (
+                            isLoggedIn ? (
+                                <div className="flex items-center gap-2">
+                                    <span className="text-sm text-blue-200 hidden md:inline">
+                                        {me.name || me.email}
+                                    </span>
+                                    <button
+                                        onClick={handleSignOut}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors"
+                                        title="Sign out"
+                                    >
+                                        <LogOut className="w-4 h-4" />
+                                        <span className="hidden md:inline">Sign Out</span>
+                                    </button>
+                                </div>
+                            ) : (
                                 <button
-                                    onClick={handleSignOut}
-                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium hover:bg-white/10 transition-colors"
-                                    title="Sign out"
+                                    onClick={() => { if (pathname !== "/login") navigate("/login"); }}
+                                    className="px-4 py-2 rounded-lg text-sm font-semibold bg-white/15 hover:bg-white/25 transition-colors border border-white/30"
                                 >
-                                    <LogOut className="w-4 h-4" />
-                                    <span className="hidden md:inline">Sign Out</span>
+                                    Login
                                 </button>
-                            </div>
-                        ) : (
-                            <button
-                                onClick={() => { if (pathname !== "/login") navigate("/login"); }}
-                                className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-                                style={{
-                                    backgroundColor: pathname === "/login" ? "#1d4ed8" : "transparent",
-                                }}
-                            >
-                                Login
-                            </button>
-                        )
-                    )}
+                            )
+                        )}
+                    </div>
                 </nav>
             </div>
         </header>

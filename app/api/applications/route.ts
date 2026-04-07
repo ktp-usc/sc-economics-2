@@ -1,5 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getAuthenticatedAdmin } from "@/lib/auth";
+
+/**
+ * GET /api/applications
+ * Admin only — returns all applications, optionally filtered by ?status=
+ */
+export async function GET(req: NextRequest) {
+    const admin = await getAuthenticatedAdmin();
+    if (!admin) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(req.url);
+    const status = searchParams.get("status");
+
+    const applications = await db.application.findMany({
+        where: status ? { status: status as never } : undefined,
+        orderBy: { appliedAt: "desc" },
+    });
+
+    return NextResponse.json(applications, { status: 200 });
+}
 
 export async function POST(req: NextRequest) {
     let body: unknown;
