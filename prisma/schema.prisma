@@ -56,7 +56,7 @@ model User {
 }
 
 model Event {
-  id          Int           @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
   title       String
   description String
   venue       String
@@ -64,23 +64,36 @@ model Event {
   type        EventType
   ageGroup    AgeGroup
   expertise   Expertise
-  date        DateTime      @db.Date
+  date        DateTime        @db.Date
   spotsTotal  Int
-  spotsFilled Int           @default(0)
-  createdAt   DateTime      @default(now())
+  spotsFilled Int             @default(0)
+  createdAt   DateTime        @default(now())
   signups     EventSignup[]
+  hoursLogs   VolunteerHours[]
 }
 
 model EventSignup {
   id          Int      @id @default(autoincrement())
   eventId     Int
-  userId      String   // Neon Auth user IDs are UUIDs (strings), not integers
+  userId      String
   why         String
   fromTime    String
   toTime      String
   certificate Boolean
   expertise   String?
   createdAt   DateTime @default(now())
+  event       Event    @relation(fields: [eventId], references: [id])
+}
+
+// Hours logged by an admin for a volunteer completing an event
+model VolunteerHours {
+  id          Int      @id @default(autoincrement())
+  userId      String   // Neon Auth user ID
+  userEmail   String   // denormalized for easy display without a join
+  eventId     Int
+  hours       Float
+  note        String?
+  loggedAt    DateTime @default(now())
   event       Event    @relation(fields: [eventId], references: [id])
 }
 
