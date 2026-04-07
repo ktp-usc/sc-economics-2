@@ -16,6 +16,6 @@ export const auth = createNeonAuth({
   baseUrl: process.env.NEON_AUTH_BASE_URL!,
   cookies: {
     // Env var name matches the key provided in the Neon Console
-    secret: process.env.NEON_AUTH_COOKIE_SECRET!,
+    secret: process.env.NEON_AUTH_SECRET_COOKIE!,
   },
 });
