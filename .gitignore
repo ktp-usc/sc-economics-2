@@ -48,3 +48,4 @@ gen
 
 
 /lib/generated/prisma
+.claude/settings.local.json

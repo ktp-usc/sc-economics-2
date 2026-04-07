@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/lib/stores/auth";
+import { useActionState, useEffect, useState } from "react";
+import { useNavigate } from "@/context/navigation";
+import { authClient } from "@/lib/auth/client";
+import { signInWithEmail, signUpWithEmail } from "./actions";
 
+// ── Icon components ───────────────────────────────────────────────────────
 
 const GoogleIcon = () => (
     <svg viewBox="0 0 24 24" className="w-5 h-5" xmlns="http://www.w3.org/2000/svg">
@@ -14,17 +16,6 @@ const GoogleIcon = () => (
     </svg>
 );
 
-const FacebookIcon = () => (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="#1877F2" xmlns="http://www.w3.org/2000/svg">
-        <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
-    </svg>
-);
-
-const AppleIcon = () => (
-    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-        <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/>
-    </svg>
-);
 
 const EyeIcon = () => (
     <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" xmlns="http://www.w3.org/2000/svg">
@@ -38,7 +29,6 @@ const EyeOffIcon = () => (
     </svg>
 );
 
-
 function Divider() {
     return (
         <div className="flex items-center gap-3 my-6">
@@ -49,64 +39,50 @@ function Divider() {
     );
 }
 
-
-function SocialButton({
-                          icon,
-                          label,
-                          onClick,
-                      }: {
-    icon: React.ReactNode;
-    label: string;
-    onClick: () => void;
-}) {
-    return (
-        <button
-            onClick={onClick}
-            className="flex items-center justify-center gap-3 w-full py-2.5 px-4 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
-        >
-            {icon}
-            {label}
-        </button>
-    );
-}
-
-
-// Temporary admin credential until backend auth is wired up
-const ADMIN_EMAIL = "admin@sceconomics.org";
+// ── Main page ─────────────────────────────────────────────────────────────
 
 export default function LoginPage() {
+    const navigate = useNavigate();
     const [mode, setMode] = useState<"login" | "register">("login");
-    const [email, setEmail] = useState("");
-    const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
-    const [error, setError] = useState("");
+    const [oauthLoading, setOauthLoading] = useState(false);
 
-    const router = useRouter();
-    const login = useAuthStore((s) => s.login);
+    /**
+     * Initiates Google OAuth via the Neon Auth client SDK.
+     * The SDK redirects the browser to Google's consent screen;
+     * after the user approves, Google redirects back to /api/auth/callback/google
+     * which the catch-all route handler processes, sets the session cookie,
+     * and finally redirects to callbackURL ("/").
+     */
+    const handleGoogleSignIn = async () => {
+        setOauthLoading(true);
+        await authClient.signIn.social({
+            provider: "google",
+            callbackURL: "/",
+        });
+    };
+
+    // Redirect away if already logged in
+    const { data: session } = authClient.useSession();
+    useEffect(() => {
+        if (session?.user) navigate("/");
+    }, [session, navigate]);
+
+    /**
+     * useActionState ties a server action to form state.
+     * `state` holds the latest { error } returned by the action;
+     * `isPending` is true while the server action is in-flight.
+     */
+    const [signInState, signInAction, signInPending] = useActionState(signInWithEmail, null);
+    const [signUpState, signUpAction, signUpPending] = useActionState(signUpWithEmail, null);
+
+    // Pick the right action & state based on mode
+    const formAction = mode === "login" ? signInAction : signUpAction;
+    const error = mode === "login" ? signInState?.error : signUpState?.error;
+    const isPending = mode === "login" ? signInPending : signUpPending;
 
     const inputCls =
         "w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-100 text-gray-900 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition";
-
-    const handleSubmit = () => {
-        setError("");
-        if (!email || !password) {
-            setError("Please fill in all fields.");
-            return;
-        }
-        if (password.length < 6) {
-            setError("Password must be at least 6 characters.");
-            return;
-        }
-        // TODO: connect to backend auth endpoint
-        const role = email.trim().toLowerCase() === ADMIN_EMAIL ? "admin" : "volunteer";
-        login(email.trim().toLowerCase(), role);
-        router.push(role === "admin" ? "/admin" : "/portal");
-    };
-
-    const handleSocial = (provider: string) => {
-        // TODO: connect to backend OAuth endpoint e.g. /api/auth/[provider]
-        console.log(`Sign in with ${provider}`);
-    };
 
     return (
         <div
@@ -114,7 +90,6 @@ export default function LoginPage() {
             style={{ background: "#f1f5f9" }}
         >
             <div className="w-full max-w-md">
-
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
                     {/* Top banner */}
@@ -143,7 +118,7 @@ export default function LoginPage() {
                             {(["login", "register"] as const).map((m) => (
                                 <button
                                     key={m}
-                                    onClick={() => { setMode(m); setError(""); }}
+                                    onClick={() => setMode(m)}
                                     className="flex-1 py-2 rounded-md text-sm font-semibold transition-all"
                                     style={{
                                         background: mode === m ? "#ffffff" : "transparent",
@@ -156,105 +131,117 @@ export default function LoginPage() {
                             ))}
                         </div>
 
-                        {/* Social buttons */}
-                        <div className="flex flex-col gap-3">
-                            <SocialButton
-                                icon={<GoogleIcon />}
-                                label="Continue with Google"
-                                onClick={() => handleSocial("google")}
-                            />
-                            <div className="grid grid-cols-2 gap-3">
-                                <SocialButton
-                                    icon={<FacebookIcon />}
-                                    label="Facebook"
-                                    onClick={() => handleSocial("facebook")}
-                                />
-                                <SocialButton
-                                    icon={<AppleIcon />}
-                                    label="Apple"
-                                    onClick={() => handleSocial("apple")}
-                                />
-                            </div>
-                        </div>
+                        {/* Google OAuth */}
+                        <button
+                            type="button"
+                            onClick={handleGoogleSignIn}
+                            disabled={oauthLoading}
+                            className="flex items-center justify-center gap-3 w-full py-2.5 px-4 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors disabled:opacity-60"
+                        >
+                            <GoogleIcon />
+                            {oauthLoading ? "Redirecting..." : "Continue with Google"}
+                        </button>
 
                         <Divider />
 
-                        {/* Error */}
+                        {/* Error banner */}
                         {error && (
                             <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm">
                                 {error}
                             </div>
                         )}
 
-                        {/* Email & Password */}
-                        <div className="flex flex-col gap-4">
-                            <div>
-                                <label className="block text-sm font-semibold text-gray-900 mb-1.5">
-                                    Email Address *
-                                </label>
-                                <input
-                                    className={inputCls}
-                                    type="email"
-                                    placeholder="you@email.com"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                />
-                            </div>
+                        {/*
+                          HTML <form> with the `action` prop wired to a Server Action.
+                          useActionState handles the pending state and returned errors.
+                        */}
+                        <form action={formAction}>
 
-                            <div>
-                                <div className="flex items-center justify-between mb-1.5">
-                                    <label className="block text-sm font-semibold text-gray-900">
+                            <div className="flex flex-col gap-4">
+
+                                {/* Name field — only shown on register */}
+                                {mode === "register" && (
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-900 mb-1.5">
+                                            Full Name
+                                        </label>
+                                        <input
+                                            className={inputCls}
+                                            name="name"
+                                            type="text"
+                                            placeholder="Jane Doe"
+                                            autoComplete="name"
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Email */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-900 mb-1.5">
+                                        Email Address *
+                                    </label>
+                                    <input
+                                        className={inputCls}
+                                        name="email"
+                                        type="email"
+                                        required
+                                        placeholder="you@email.com"
+                                        autoComplete="email"
+                                    />
+                                </div>
+
+                                {/* Password */}
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-900 mb-1.5">
                                         Password *
                                     </label>
-                                    {mode === "login" && (
+                                    <div className="relative">
+                                        <input
+                                            className={inputCls + " pr-10"}
+                                            name="password"
+                                            type={showPassword ? "text" : "password"}
+                                            required
+                                            minLength={mode === "register" ? 8 : undefined}
+                                            placeholder="••••••••"
+                                            autoComplete={mode === "login" ? "current-password" : "new-password"}
+                                        />
                                         <button
-                                            onClick={() => {/* TODO: forgot password flow */}}
-                                            className="text-xs font-medium text-blue-600 hover:text-blue-800 transition-colors"
+                                            type="button"
+                                            onClick={() => setShowPassword((p) => !p)}
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                                         >
-                                            Forgot password?
+                                            {showPassword ? <EyeOffIcon /> : <EyeIcon />}
                                         </button>
+                                    </div>
+                                    {mode === "register" && (
+                                        <p className="mt-1 text-xs text-gray-400">Must be at least 8 characters</p>
                                     )}
                                 </div>
-                                <div className="relative">
-                                    <input
-                                        className={inputCls + " pr-10"}
-                                        type={showPassword ? "text" : "password"}
-                                        placeholder="••••••••"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                        onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => setShowPassword((p) => !p)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
-                                    >
-                                        {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                                    </button>
-                                </div>
                             </div>
-                        </div>
 
-                        {/* Submit */}
-                        <button
-                            onClick={handleSubmit}
-                            className="w-full mt-6 py-2.5 rounded-lg text-white font-bold text-sm transition hover:opacity-90"
-                            style={{ backgroundColor: "#003366" }}
-                        >
-                            {mode === "login" ? "Sign In →" : "Create Account →"}
-                        </button>
+                            {/* Submit */}
+                            <button
+                                type="submit"
+                                disabled={isPending}
+                                className="w-full mt-6 py-2.5 rounded-lg text-white font-bold text-sm transition hover:opacity-90 disabled:opacity-60"
+                                style={{ backgroundColor: "#003366" }}
+                            >
+                                {isPending
+                                    ? (mode === "login" ? "Signing in..." : "Creating account...")
+                                    : (mode === "login" ? "Sign In" : "Create Account")}
+                            </button>
+                        </form>
 
                         {/* Switch mode */}
                         <p className="text-center text-xs text-gray-500 mt-5">
                             {mode === "login" ? "Don't have an account? " : "Already have an account? "}
                             <button
-                                onClick={() => { setMode(mode === "login" ? "register" : "login"); setError(""); }}
+                                onClick={() => setMode(mode === "login" ? "register" : "login")}
                                 className="font-semibold text-[#003366] hover:underline"
                             >
                                 {mode === "login" ? "Register here" : "Sign in"}
                             </button>
                         </p>
-
                     </div>
                 </div>
             </div>
