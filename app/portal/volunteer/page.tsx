@@ -17,27 +17,20 @@ import {
 // ─── Mock Data ───────────────────────────────────────────────────────────────
 
 const volunteer = {
-    name: "Sarah Mitchell",
-    email: "sarah.mitchell@email.com",
-    joinedDate: "August 2023",
-    avatar: "SM",
-    district: "Richland County School District 1",
-    status: "Active",
+    name: "",
+    email: "",
+    joinedDate: "",
+    avatar: "",
+    district: "",
+    status: "",
 };
 
 const stats = [
-    { label: "Total Hours", value: "47.5", icon: Clock, color: "#003366", sub: "hrs logged" },
-    { label: "Events Completed", value: "12", icon: CalendarCheck, color: "#1d4ed8", sub: "events" },
+    { label: "Total Hours", value: "0", icon: Clock, color: "#003366", sub: "hrs logged" },
+    { label: "Events Completed", value: "0", icon: CalendarCheck, color: "#1d4ed8", sub: "events" },
 ];
 
-const badges = [
-    { name: "First Event", icon: "🎉", earned: true, date: "Sep 2023" },
-    { name: "10 Hours", icon: "⏱️", earned: true, date: "Nov 2023" },
-    { name: "25 Hours", icon: "🏅", earned: true, date: "Mar 2024" },
-    { name: "Stock Market Pro", icon: "📈", earned: true, date: "Feb 2024" },
-    { name: "50 Hours", icon: "🌟", earned: false, date: null },
-    { name: "District Champion", icon: "🏆", earned: false, date: null },
-];
+const badges: { name: string; icon: string; earned: boolean; date: string | null }[] = [];
 
 type FilterType = "all" | "completed" | "upcoming";
 
@@ -52,88 +45,7 @@ type VolEvent = {
     district: string;
 };
 
-const events: VolEvent[] = [
-    {
-        id: 1,
-        name: "Stock Market Game Kickoff",
-        date: "Sep 14, 2024",
-        location: "A.C. Flora High School",
-        hours: 3.5,
-        type: "Student Contest",
-        status: "completed",
-        district: "Richland 1",
-    },
-    {
-        id: 2,
-        name: "Personal Finance Workshop",
-        date: "Oct 2, 2024",
-        location: "Dreher High School",
-        hours: 2.0,
-        type: "Teacher PD",
-        status: "completed",
-        district: "Richland 1",
-    },
-    {
-        id: 3,
-        name: "Finance Challenge – Regional",
-        date: "Nov 18, 2024",
-        location: "USC Campus, Columbia",
-        hours: 6.0,
-        type: "Student Contest",
-        status: "completed",
-        district: "Multi-District",
-    },
-    {
-        id: 4,
-        name: "Economics Challenge Prep",
-        date: "Jan 9, 2025",
-        location: "Eau Claire High School",
-        hours: 2.5,
-        type: "Workshop",
-        status: "completed",
-        district: "Richland 1",
-    },
-    {
-        id: 5,
-        name: "Spring Educator Summit",
-        date: "Mar 15, 2025",
-        location: "SC State Museum",
-        hours: 5.0,
-        type: "Educator Event",
-        status: "completed",
-        district: "Statewide",
-    },
-    {
-        id: 6,
-        name: "Stock Market Game Finals",
-        date: "Apr 22, 2025",
-        location: "First Citizens Bank HQ",
-        hours: 4.0,
-        type: "Student Contest",
-        status: "completed",
-        district: "Multi-District",
-    },
-    {
-        id: 7,
-        name: "Summer Teacher Workshop",
-        date: "Jun 10, 2025",
-        location: "SC Economics Office, Columbia",
-        hours: 3.0,
-        type: "Teacher PD",
-        status: "upcoming",
-        district: "Richland 1",
-    },
-    {
-        id: 8,
-        name: "Back-to-School Financial Literacy Day",
-        date: "Aug 5, 2025",
-        location: "Dutch Fork High School",
-        hours: 4.0,
-        type: "Workshop",
-        status: "upcoming",
-        district: "Lexington-Richland 5",
-    },
-];
+const events: VolEvent[] = [];
 
 const typeColors: Record<string, { bg: string; text: string }> = {
     "Student Contest": { bg: "#eff6ff", text: "#1d4ed8" },
@@ -357,19 +269,19 @@ export default function VolunteerPortalPage() {
                                     <h3 className="font-bold text-[#1e3a5f]">Progress to Next Badge</h3>
                                     <p className="text-xs text-gray-400 mt-0.5">50 Hours — 🌟</p>
                                 </div>
-                                <span className="text-2xl font-extrabold text-[#003366]">47.5 / 50h</span>
+                                <span className="text-2xl font-extrabold text-[#003366]">{totalHours} / 50h</span>
                             </div>
                             <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
                                 <div
                                     className="h-3 rounded-full"
                                     style={{
-                                        width: "95%",
+                                        width: `${Math.min((totalHours / 50) * 100, 100)}%`,
                                         background: "linear-gradient(90deg, #003366, #1d4ed8)",
                                     }}
                                 />
                             </div>
                             <p className="text-xs text-gray-400 mt-2">
-                                Just 2.5 more hours to unlock the 50 Hours badge!
+                                Just {Math.max(0, 50 - totalHours).toFixed(1)} more hours to unlock the 50 Hours badge!
                             </p>
                         </div>
 
@@ -515,7 +427,7 @@ export default function VolunteerPortalPage() {
                             </div>
                             <div className="flex items-center gap-2 bg-white border border-blue-100 rounded-xl px-4 py-2 shadow-sm">
                                 <Award size={16} className="text-[#1d4ed8]" />
-                                <span className="text-sm font-bold text-[#1e3a5f]">Level 3 Volunteer</span>
+                                <span className="text-sm font-bold text-[#1e3a5f]">Volunteer</span>
                             </div>
                         </div>
 
@@ -563,7 +475,7 @@ export default function VolunteerPortalPage() {
                             <h3 className="font-bold text-lg mb-1">50 Hours — Almost There!</h3>
                             <p className="text-blue-200 text-sm max-w-sm mx-auto">
                                 You&apos;re only{" "}
-                                <strong className="text-white">2.5 hours away</strong> from unlocking
+                                <strong className="text-white">{Math.max(0, 50 - totalHours).toFixed(1)} hours away</strong> from unlocking
                                 the 50 Hours badge. Sign up for your next event to reach it!
                             </p>
                             <button className="mt-4 bg-white text-[#003366] font-bold px-6 py-2.5 rounded-xl text-sm hover:bg-blue-50 transition">

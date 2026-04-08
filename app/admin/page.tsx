@@ -37,32 +37,13 @@ interface HoursLog {
 
 // ─── Mock Data ────────────────────────────────────────────────────────────────
 
-const INITIAL_APPLICATIONS: Application[] = [
-    { id: 1, firstName: "Emily", lastName: "Carter", email: "emily.carter@email.com", phone: "(803) 555-0192", city: "Columbia", state: "South Carolina", days: ["Tuesday", "Thursday", "Saturday"], skills: "Teaching, Curriculum Design, Public Speaking", experience: "5 years as a high school economics teacher", motivation: "Passionate about financial literacy for youth.", status: "pending", appliedDate: "2025-03-10" },
-    { id: 2, firstName: "Marcus", lastName: "Johnson", email: "marcusj@email.com", phone: "(864) 555-0347", city: "Greenville", state: "South Carolina", days: ["Monday", "Wednesday", "Friday"], skills: "Finance, Banking, Mentoring", experience: "15 years in commercial banking", motivation: "Want to give back to the community.", status: "pending", appliedDate: "2025-03-11" },
-    { id: 3, firstName: "Priya", lastName: "Nair", email: "priya.n@email.com", phone: "(843) 555-0584", city: "Charleston", state: "South Carolina", days: ["Saturday", "Sunday"], skills: "Marketing, Event Planning, Social Media", experience: "Organized 3 non-profit fundraisers", motivation: "Economic education changed my life.", status: "approved", appliedDate: "2025-03-08" },
-    { id: 4, firstName: "Derek", lastName: "Washington", email: "derek.w@email.com", phone: "(803) 555-0761", city: "Columbia", state: "South Carolina", days: ["Tuesday", "Thursday"], skills: "Technology, Data Analysis, Python", experience: "Software engineer with 8 years experience", motivation: "Combining tech skills with financial education.", status: "denied", appliedDate: "2025-03-05" },
-    { id: 5, firstName: "Sophia", lastName: "Lee", email: "sophia.lee@email.com", phone: "(864) 555-0123", city: "Spartanburg", state: "South Carolina", days: ["Monday", "Wednesday", "Saturday"], skills: "Accounting, Tax Preparation, Financial Advising", experience: "CPA with 10 years in public accounting", motivation: "Want to teach students about budgeting.", status: "pending", appliedDate: "2025-03-12" },
-];
+const INITIAL_APPLICATIONS: Application[] = [];
 
-const INITIAL_VOLUNTEERS: Volunteer[] = [
-    { id: 3, name: "Priya Nair", email: "priya.n@email.com", phone: "(843) 555-0584", city: "Charleston", skills: "Marketing, Event Planning, Social Media", assignedEvents: [1] },
-    { id: 10, name: "James Porter", email: "jporter@email.com", phone: "(803) 555-0910", city: "Columbia", skills: "Teaching, Finance, Leadership", assignedEvents: [1, 2] },
-    { id: 11, name: "Aaliyah Brooks", email: "abrooks@email.com", phone: "(864) 555-0222", city: "Greenville", skills: "Public Speaking, Curriculum Design", assignedEvents: [] },
-    { id: 12, name: "Carlos Mendez", email: "cmendez@email.com", phone: "(843) 555-0413", city: "Charleston", skills: "Technology, Event Planning", assignedEvents: [2] },
-];
+const INITIAL_VOLUNTEERS: Volunteer[] = [];
 
-const INITIAL_EVENTS: Event[] = [
-    { id: 1, title: "Financial Literacy Day – Richland One", date: "2025-04-05", location: "Columbia, SC", description: "Full-day financial literacy workshop for 9th graders.", volunteersNeeded: 6, assignedVolunteers: [3, 10] },
-    { id: 2, title: "Stock Market Simulation – USC Upstate", date: "2025-04-19", location: "Spartanburg, SC", description: "Interactive stock market simulation for high school students.", volunteersNeeded: 4, assignedVolunteers: [10, 12] },
-    { id: 3, title: "Personal Finance Summit", date: "2025-05-03", location: "Charleston, SC", description: "Annual summit bringing together educators and students.", volunteersNeeded: 8, assignedVolunteers: [] },
-];
+const INITIAL_EVENTS: Event[] = [];
 
-const INITIAL_HOURS: HoursLog[] = [
-    { id: 1, volunteerId: 3, volunteerName: "Priya Nair", volunteerEmail: "priya.n@email.com", eventId: 1, eventTitle: "Financial Literacy Day – Richland One", hours: 6, note: "Led morning session", loggedAt: "2025-04-05" },
-    { id: 2, volunteerId: 10, volunteerName: "James Porter", volunteerEmail: "jporter@email.com", eventId: 1, eventTitle: "Financial Literacy Day – Richland One", hours: 6, note: "Facilitated all three schools", loggedAt: "2025-04-05" },
-    { id: 3, volunteerId: 10, volunteerName: "James Porter", volunteerEmail: "jporter@email.com", eventId: 2, eventTitle: "Stock Market Simulation – USC Upstate", hours: 4, note: "", loggedAt: "2025-04-19" },
-];
+const INITIAL_HOURS: HoursLog[] = [];
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
