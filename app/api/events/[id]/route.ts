@@ -1,15 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { EXPERTISE_THEME, type Expertise } from "@/lib/types";
+import { getAuthenticatedAdmin } from "@/lib/auth";
 
 // ── Auth guard ──────────────────────────────────────────────────────────────
 function unauthorized(msg = "Unauthorized. Admin session required.") {
     return NextResponse.json({ error: msg }, { status: 401 });
 }
 
-function isAdminSession(req: NextRequest): boolean {
-    const session = req.cookies.get("session")?.value;
-    return Boolean(session && session.length > 0);
+async function isAdminSession(): Promise<boolean> {
+    const admin = await getAuthenticatedAdmin();
+    return admin !== null;
 }
 
 // ── P2025 helper (record not found) ────────────────────────────────────────
@@ -43,7 +44,7 @@ export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    if (!isAdminSession(req)) return unauthorized();
+    if (!await isAdminSession()) return unauthorized();
 
     const { id } = await params;
     const numericId = Number(id);
@@ -105,10 +106,10 @@ export async function PATCH(
  * Admin only — permanently deletes an event.
  */
 export async function DELETE(
-    req: NextRequest,
+    _req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    if (!isAdminSession(req)) return unauthorized();
+    if (!await isAdminSession()) return unauthorized();
 
     const { id } = await params;
     const numericId = Number(id);

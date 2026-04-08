@@ -15,9 +15,19 @@ export function NavigationProvider({ children }: { children: ReactNode }) {
     const router = useRouter();
     const fadeRef = useRef<(() => void) | null>(null);
 
+    // Prevents a second navigate() call from firing while the fade-out animation
+    // is still running (FADE_MS window). Without this, rapid double-clicks trigger
+    // two fade-outs but only one pathname change, leaving the page permanently blank.
+    const isNavigating = useRef(false);
+
     const navigate = useCallback((href: string) => {
+        if (isNavigating.current) return;
+        isNavigating.current = true;
         fadeRef.current?.();
-        setTimeout(() => router.push(href), FADE_MS);
+        setTimeout(() => {
+            router.push(href);
+            isNavigating.current = false;
+        }, FADE_MS);
     }, [router]);
 
     return (
