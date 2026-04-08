@@ -2,10 +2,45 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { MapPin, Calendar, Users, X, CheckCircle } from "lucide-react";
-import { useEventsStore } from "@/lib/stores/events";
 import {
-    VolunteerEvent, EventType, AgeGroup, Expertise, City, formatDate,
+    VolunteerEvent, EventType, AgeGroup, Expertise, City, EXPERTISE_THEME, formatDate,
 } from "@/lib/types";
+
+// ── API → display value maps ───────────────────────────────────────────────
+
+const AGE_GROUP_MAP: Record<string, AgeGroup> = {
+    K_5:   "K–5",
+    G6_8:  "6–8",
+    G9_12: "9–12",
+};
+
+const CITY_MAP: Record<string, City> = {
+    Rock_Hill:    "Rock Hill",
+    Myrtle_Beach: "Myrtle Beach",
+};
+
+function normalizeEvent(raw: Record<string, unknown>): VolunteerEvent {
+    const expertise = raw.expertise as Expertise;
+    const ageGroup  = (AGE_GROUP_MAP[raw.ageGroup as string] ?? raw.ageGroup) as AgeGroup;
+    const city      = (CITY_MAP[raw.city as string]      ?? raw.city)      as City;
+    // Prisma serialises DateTime as ISO-8601; strip to YYYY-MM-DD for formatDate()
+    const date = (raw.date as string).slice(0, 10);
+
+    return {
+        id:          raw.id          as number,
+        title:       raw.title       as string,
+        description: raw.description as string,
+        venue:       raw.venue       as string,
+        spotsTotal:  raw.spotsTotal  as number,
+        spotsFilled: raw.spotsFilled as number,
+        type:        raw.type        as EventType,
+        expertise,
+        ageGroup,
+        city,
+        date,
+        ...EXPERTISE_THEME[expertise],
+    };
+}
 
 // ── Badge colour maps ──────────────────────────────────────────────────────
 
@@ -48,44 +83,56 @@ const selectCls =
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function EventsPage() {
-    // Prevent SSR/localStorage hydration mismatch
-    const [mounted, setMounted] = useState<boolean>(false);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    useEffect(() => setMounted(true), []);
-
-    const events      = useEventsStore((s) => s.events);
-    const signedUpIds = useEventsStore((s) => s.signedUpIds);
-    const signUp      = useEventsStore((s) => s.signUp);
+    const [events,      setEvents]      = useState<VolunteerEvent[]>([]);
+    const [isLoading,   setIsLoading]   = useState(true);
+    const [signedUpIds, setSignedUpIds] = useState<number[]>([]);
 
     const [filters, setFilters]         = useState<Filters>(INITIAL_FILTERS);
     const [signUpEvent, setSignUpEvent] = useState<VolunteerEvent | null>(null);
     const [justConfirmed, setJustConfirmed] = useState(false);
+
+    useEffect(() => {
+        fetch("/api/events")
+            .then((r) => r.ok ? r.json() : [])
+            .then((raw: Record<string, unknown>[]) => setEvents(raw.map(normalizeEvent)))
+            .catch(() => setEvents([]))
+            .finally(() => setIsLoading(false));
+    }, []);
 
     const set = <K extends keyof Filters>(k: K, v: Filters[K]) =>
         setFilters((prev) => ({ ...prev, [k]: v }));
 
     const isFiltered = Object.values(filters).some((v) => v !== "All");
 
-    const filtered = useMemo(() => {
-        if (!mounted) return [];
-        return events.filter((e) =>
-            (filters.city      === "All" || e.city      === filters.city) &&
-            (filters.type      === "All" || e.type      === filters.type) &&
-            (filters.ageGroup  === "All" || e.ageGroup  === filters.ageGroup) &&
-            (filters.expertise === "All" || e.expertise === filters.expertise)
-        );
-    }, [mounted, events, filters]);
+    const filtered = useMemo(() => events.filter((e) =>
+        (filters.city      === "All" || e.city      === filters.city) &&
+        (filters.type      === "All" || e.type      === filters.type) &&
+        (filters.ageGroup  === "All" || e.ageGroup  === filters.ageGroup) &&
+        (filters.expertise === "All" || e.expertise === filters.expertise)
+    ), [events, filters]);
 
-    const openCount = mounted ? events.filter((e) => e.spotsFilled < e.spotsTotal).length : 0;
-    const spotsLeft = mounted
-        ? events.reduce((sum, e) => sum + Math.max(0, e.spotsTotal - e.spotsFilled), 0)
-        : 0;
+    const openCount = events.filter((e) => e.spotsFilled < e.spotsTotal).length;
+    const spotsLeft = events.reduce((sum, e) => sum + Math.max(0, e.spotsTotal - e.spotsFilled), 0);
 
     function handleConfirm(event: VolunteerEvent) {
-        signUp(event.id);
+        setSignedUpIds((prev) => [...prev, event.id]);
         setSignUpEvent(null);
         setJustConfirmed(true);
         setTimeout(() => setJustConfirmed(false), 4000);
+    }
+
+    if (isLoading) {
+        return (
+            <div className="min-h-[calc(100vh-70px)] bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div
+                        className="w-12 h-12 rounded-full border-4 border-t-transparent animate-spin mx-auto mb-4"
+                        style={{ borderColor: "#003366", borderTopColor: "transparent" }}
+                    />
+                    <p className="text-gray-500 text-sm font-medium">Loading events…</p>
+                </div>
+            </div>
+        );
     }
 
     return (
@@ -106,17 +153,17 @@ export default function EventsPage() {
                     </div>
                     <div className="hidden md:flex gap-6 text-center shrink-0">
                         <div>
-                            <div className="text-2xl font-bold">{mounted ? events.length : "—"}</div>
+                            <div className="text-2xl font-bold">{events.length}</div>
                             <div className="text-blue-200 text-xs uppercase tracking-wide mt-0.5">Total Events</div>
                         </div>
                         <div className="w-px bg-white/20" />
                         <div>
-                            <div className="text-2xl font-bold">{mounted ? openCount : "—"}</div>
+                            <div className="text-2xl font-bold">{openCount}</div>
                             <div className="text-blue-200 text-xs uppercase tracking-wide mt-0.5">Open</div>
                         </div>
                         <div className="w-px bg-white/20" />
                         <div>
-                            <div className="text-2xl font-bold">{mounted ? spotsLeft : "—"}</div>
+                            <div className="text-2xl font-bold">{spotsLeft}</div>
                             <div className="text-blue-200 text-xs uppercase tracking-wide mt-0.5">Spots Left</div>
                         </div>
                     </div>
@@ -126,7 +173,7 @@ export default function EventsPage() {
             <div className="max-w-6xl mx-auto px-4 py-8">
 
                 {/* ── No events at all ──────────────────────────────────── */}
-                {mounted && events.length === 0 ? (
+                {events.length === 0 ? (
                     <div className="text-center py-24 text-gray-400">
                         <div className="text-5xl mb-4">📅</div>
                         <p className="text-lg font-semibold text-gray-500 mb-2">No events scheduled yet</p>
