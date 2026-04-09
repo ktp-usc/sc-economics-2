@@ -1,37 +1,84 @@
 /**
- * Route-protection proxy (Neon Auth)
+ * Route-protection proxy (Next.js 16 — replaces middleware.ts)
  *
- * Next.js 16 uses "proxy.ts" instead of the older "middleware.ts".
+ * Two-layer protection:
  *
- * How it works:
- *   1. The Neon Auth middleware validates the session cookie on every
- *      matched request and refreshes expired tokens automatically.
- *   2. If a user hits a protected route without a valid session they
- *      are redirected to /login.
- *   3. Public routes (/, /login, /api/auth/*, static assets) are
- *      excluded via the `matcher` so they bypass this entirely.
+ *  1. Authentication — auth.middleware() validates the Neon Auth session
+ *     cookie on every matched request and redirects unauthenticated users
+ *     to /login.  It also refreshes expired tokens automatically.
+ *
+ *  2. Role authorisation — for staff-only routes (/admin, /manager) we
+ *     call /api/me to retrieve the role from the database.  Authenticated
+ *     volunteers are redirected to /portal instead of being blocked with a
+ *     hard 401, which keeps the UX smooth.
+ *
+ * Public routes (/, /login, /api/auth/*, static assets) are excluded via
+ * the `matcher` so they bypass this entirely.
  */
 
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth/server";
 
-export default auth.middleware({ loginUrl: "/login" });
-
 /**
- * matcher — controls which paths the middleware runs on.
- *
- * We protect everything EXCEPT:
- *   - Next.js internals (_next/static, _next/image)
- *   - The favicon
- *   - The home page (/)
- *   - The login page (/login)
- *   - The auth API routes (/api/auth/*)
- *   - Public images (e.g. /SC-Econ-logo.png)
+ * Routes where a staff role (admin or manager) is required.
+ * Authenticated volunteers on these paths are redirected to /portal.
  */
+const STAFF_ONLY_ROUTES = ["/admin", "/manager"];
+
+const authMiddleware = auth.middleware({ loginUrl: "/login" });
+
+function matchesRoute(routes: string[], pathname: string): boolean {
+    return routes.some(
+        (r) => pathname === r || pathname.startsWith(r + "/"),
+    );
+}
+
+export default async function proxy(request: NextRequest): Promise<NextResponse> {
+    // Step 1 — run base auth check.
+    // Returns NextResponse.next() for authenticated requests, or a redirect
+    // to /login for unauthenticated ones (also handles token refresh / OAuth).
+    const authResponse = await authMiddleware(request);
+
+    // If auth middleware issued a redirect (e.g. to /login), honour it.
+    if (authResponse.headers.has("location")) {
+        return authResponse;
+    }
+
+    // Step 2 — role gate for staff-only routes.
+    const { pathname } = request.nextUrl;
+    if (matchesRoute(STAFF_ONLY_ROUTES, pathname)) {
+        try {
+            const meRes = await fetch(new URL("/api/me", request.url), {
+                headers: { cookie: request.headers.get("cookie") ?? "" },
+            });
+
+            if (!meRes.ok) {
+                // Session was valid per auth middleware but /api/me disagrees
+                // (e.g., token just expired between checks) → back to login.
+                return NextResponse.redirect(new URL("/login", request.url));
+            }
+
+            const me = (await meRes.json()) as { role: string };
+
+            if (me.role === "volunteer") {
+                // Volunteers don't have staff access; send them to their portal.
+                return NextResponse.redirect(new URL("/portal", request.url));
+            }
+        } catch {
+            // If the role lookup fails (network error, bad JSON, etc.) let the
+            // request through — the page's own client-side guard will handle it.
+        }
+    }
+
+    return authResponse;
+}
+
 export const config = {
-  matcher: [
-    "/volunteer/:path*",
-    "/events/:path*",
-    "/portal/:path*",
-    "/admin/:path*",
-  ],
+    matcher: [
+        "/admin/:path*",
+        "/manager/:path*",
+        "/portal/:path*",
+        "/events/:path*",
+        "/volunteer/:path*",
+    ],
 };
