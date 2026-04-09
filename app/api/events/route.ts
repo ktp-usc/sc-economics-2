@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthenticatedAdmin } from "@/lib/auth";
+import { getAuthenticatedStaff } from "@/lib/auth";
 
 const EVENT_TYPES  = ["Teaching", "Workshop", "Event"] as const;
 const AGE_GROUPS   = ["K_5", "G6_8", "G9_12"]         as const;
@@ -18,12 +18,12 @@ export async function GET() {
 
 /**
  * POST /api/events
- * Admin only — creates a new event.
+ * Staff (admin or manager) - creates a new event.
  */
 export async function POST(req: NextRequest) {
-    const admin = await getAuthenticatedAdmin();
-    if (!admin) {
-        return NextResponse.json({ error: "Unauthorized. Admin role required." }, { status: 401 });
+    const staff = await getAuthenticatedStaff();
+    if (!staff) {
+        return NextResponse.json({ error: "Unauthorized. Staff role required." }, { status: 401 });
     }
 
     let body: unknown;

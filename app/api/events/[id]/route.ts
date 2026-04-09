@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { EXPERTISE_THEME, type Expertise } from "@/lib/types";
-import { getAuthenticatedAdmin } from "@/lib/auth";
+import { getAuthenticatedStaff } from "@/lib/auth";
 
 // ── Auth guard ──────────────────────────────────────────────────────────────
-function unauthorized(msg = "Unauthorized. Admin session required.") {
+function unauthorized(msg = "Unauthorized. Staff session required.") {
     return NextResponse.json({ error: msg }, { status: 401 });
 }
 
-async function isAdminSession(): Promise<boolean> {
-    const admin = await getAuthenticatedAdmin();
-    return admin !== null;
+// Returns true when the caller is an admin or manager
+async function isStaffSession(): Promise<boolean> {
+    const staff = await getAuthenticatedStaff();
+    return staff !== null;
 }
 
 // ── P2025 helper (record not found) ────────────────────────────────────────
@@ -35,7 +36,7 @@ function withTheme(event: { expertise: Expertise; [key: string]: unknown }) {
 
 // ── PATCH /api/events/[id] ──────────────────────────────────────────────────
 /**
- * Admin only — partially updates an event.
+ * Staff (admin or manager) - partially updates an event.
  * Accepts any subset of the writable fields.
  * Re-derives gradient + emoji on the response when expertise changes.
  * gradient + emoji are NOT stored in the DB.
@@ -44,7 +45,7 @@ export async function PATCH(
     req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    if (!await isAdminSession()) return unauthorized();
+    if (!await isStaffSession()) return unauthorized();
 
     const { id } = await params;
     const numericId = Number(id);
@@ -103,13 +104,13 @@ export async function PATCH(
 
 // ── DELETE /api/events/[id] ─────────────────────────────────────────────────
 /**
- * Admin only — permanently deletes an event.
+ * Staff (admin or manager) - permanently deletes an event.
  */
 export async function DELETE(
     _req: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    if (!await isAdminSession()) return unauthorized();
+    if (!await isStaffSession()) return unauthorized();
 
     const { id } = await params;
     const numericId = Number(id);

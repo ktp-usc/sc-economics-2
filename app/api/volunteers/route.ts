@@ -1,25 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { auth } from "@/lib/auth/server";
+import { getAuthenticatedStaff } from "@/lib/auth";
 
 function unauthorized() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 }
 
-async function requireAdmin(req: NextRequest) {
-    const { data: session } = await auth.getSession();
-    if (!session?.user) return unauthorized();
-    const role = (session.user as { role?: string }).role;
-    if (role !== "admin" && role !== "manager") return unauthorized();
+/**
+ * Checks that the current session belongs to an admin or manager.
+ * Returns an error response if not, or null if authorized.
+ */
+async function requireStaff() {
+    const staff = await getAuthenticatedStaff();
+    if (!staff) return unauthorized();
     return null;
 }
 
 /**
  * GET /api/volunteers/hours
- * Admin — returns all hours logs grouped by userId, optionally filtered by ?userId=
+ * Staff (admin or manager) - returns all hours logs, optionally filtered by ?userId=
  */
 export async function GET(req: NextRequest) {
-    const err = await requireAdmin(req);
+    const err = await requireStaff();
     if (err) return err;
 
     const { searchParams } = new URL(req.url);
@@ -36,11 +38,11 @@ export async function GET(req: NextRequest) {
 
 /**
  * POST /api/volunteers/hours
- * Admin — log hours for a volunteer completing an event.
+ * Staff (admin or manager) - log hours for a volunteer completing an event.
  * Body: { userId, userEmail, eventId, hours, note? }
  */
 export async function POST(req: NextRequest) {
-    const err = await requireAdmin(req);
+    const err = await requireStaff();
     if (err) return err;
 
     try {
@@ -80,10 +82,10 @@ export async function POST(req: NextRequest) {
 
 /**
  * DELETE /api/volunteers/hours?id=
- * Admin — remove a specific hours log entry.
+ * Staff (admin or manager) - remove a specific hours log entry.
  */
 export async function DELETE(req: NextRequest) {
-    const err = await requireAdmin(req);
+    const err = await requireStaff();
     if (err) return err;
 
     const { searchParams } = new URL(req.url);
