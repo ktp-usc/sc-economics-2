@@ -1,21 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Shield, Trash2, Plus, Eye, EyeOff, UserCog, AlertCircle, CheckCircle2 } from "lucide-react";
+import { useNavigate } from "@/context/navigation";
 
 // ── Types ──────────────────────────────────────────────────────────────────
 interface AdminAccount {
-    id: string;
+    id: number;
     email: string;
     createdAt: string;
 }
-
-// ── Seed data ──────────────────────────────────────────────────────────────
-const seedAdmins: AdminAccount[] = [
-    { id: "1", email: "admin@sceconomics.org",   createdAt: "2024-09-01" },
-    { id: "2", email: "director@sceconomics.org", createdAt: "2024-11-15" },
-    { id: "3", email: "coordinator@sceconomics.org", createdAt: "2025-01-08" },
-];
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 function initials(email: string) {
@@ -35,9 +29,7 @@ function Toast({ message, type, onClose }: { message: string; type: "success" | 
             className="fixed bottom-6 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-xl text-white text-sm font-medium animate-in slide-in-from-bottom-4"
             style={{ background: type === "success" ? "#16a34a" : "#dc2626" }}
         >
-            {type === "success"
-                ? <CheckCircle2 size={16} />
-                : <AlertCircle size={16} />}
+            {type === "success" ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
             {message}
             <button onClick={onClose} className="ml-2 opacity-70 hover:opacity-100 text-lg leading-none">×</button>
         </div>
@@ -46,51 +38,99 @@ function Toast({ message, type, onClose }: { message: string; type: "success" | 
 
 // ── Page ───────────────────────────────────────────────────────────────────
 export default function ManagerPage() {
-    const [admins, setAdmins] = useState<AdminAccount[]>(seedAdmins);
-    const [email, setEmail]       = useState("");
+    const navigate = useNavigate();
+    const [isReady,  setIsReady]  = useState(false);
+    const [admins,   setAdmins]   = useState<AdminAccount[]>([]);
+    const [email,    setEmail]    = useState("");
     const [password, setPassword] = useState("");
-    const [showPw, setShowPw]     = useState(false);
-    const [confirmDelete, setConfirmDelete] = useState<string | null>(null);
-    const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+    const [showPw,   setShowPw]   = useState(false);
+    const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+    const [toast,     setToast]     = useState<{ message: string; type: "success" | "error" } | null>(null);
     const [formError, setFormError] = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // ── Auth check + load ──────────────────────────────────────────────────
+    useEffect(() => {
+        async function init() {
+            const meRes = await fetch("/api/me");
+            if (!meRes.ok) { navigate("/login"); return; }
+            const me = await meRes.json();
+            if (me.role !== "admin") { navigate("/login"); return; }
+
+            const res = await fetch("/api/admins");
+            if (res.ok) setAdmins(await res.json());
+            setIsReady(true);
+        }
+        init().catch(() => navigate("/login"));
+    }, [navigate]);
 
     const showToast = (message: string, type: "success" | "error") => {
         setToast({ message, type });
         setTimeout(() => setToast(null), 3500);
     };
 
-    const handleAdd = () => {
+    const handleAdd = async () => {
         setFormError("");
         if (!email.trim()) { setFormError("Email is required."); return; }
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { setFormError("Enter a valid email address."); return; }
         if (!password) { setFormError("Password is required."); return; }
         if (password.length < 8) { setFormError("Password must be at least 8 characters."); return; }
-        if (admins.some((a) => a.email.toLowerCase() === email.toLowerCase())) {
-            setFormError("An admin with this email already exists.");
-            return;
-        }
 
-        const newAdmin: AdminAccount = {
-            id: Date.now().toString(),
-            email: email.trim().toLowerCase(),
-            createdAt: new Date().toISOString().slice(0, 10),
-        };
-        setAdmins((prev) => [newAdmin, ...prev]);
-        setEmail("");
-        setPassword("");
-        showToast("Admin account created successfully.", "success");
-        // TODO: POST /api/admins { email, password }
+        setIsSubmitting(true);
+        try {
+            const res = await fetch("/api/admins", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
+            });
+            const data = await res.json();
+            if (!res.ok) {
+                setFormError(data.error ?? "Failed to create admin account.");
+                return;
+            }
+            setAdmins((prev) => [data, ...prev]);
+            setEmail("");
+            setPassword("");
+            showToast("Admin account created successfully.", "success");
+        } catch {
+            setFormError("Failed to create admin account.");
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
-    const handleDelete = (id: string) => {
-        setAdmins((prev) => prev.filter((a) => a.id !== id));
-        setConfirmDelete(null);
-        showToast("Admin account removed.", "success");
-        // TODO: DELETE /api/admins/{id}
+    const handleDelete = async (id: number) => {
+        try {
+            const res = await fetch(`/api/admins/${id}`, { method: "DELETE" });
+            const data = await res.json();
+            if (!res.ok) {
+                showToast(data.error ?? "Failed to remove admin.", "error");
+                return;
+            }
+            setAdmins((prev) => prev.filter((a) => a.id !== id));
+            setConfirmDelete(null);
+            showToast("Admin account removed.", "success");
+        } catch {
+            showToast("Failed to remove admin.", "error");
+        }
     };
 
     const inputCls =
         "w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition";
+
+    if (!isReady) {
+        return (
+            <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+                <div className="text-center">
+                    <div
+                        className="w-12 h-12 rounded-full border-4 border-t-transparent animate-spin mx-auto mb-4"
+                        style={{ borderColor: "#003366", borderTopColor: "transparent" }}
+                    />
+                    <p className="text-gray-500 text-sm font-medium">Loading…</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-[#f0f4f8]">
@@ -165,9 +205,7 @@ export default function ManagerPage() {
                                         onClick={() => setShowPw((p) => !p)}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                                     >
-                                        {showPw
-                                            ? <EyeOff size={16} />
-                                            : <Eye size={16} />}
+                                        {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
                                     </button>
                                 </div>
                             </div>
@@ -182,11 +220,12 @@ export default function ManagerPage() {
 
                         <button
                             onClick={handleAdd}
-                            className="mt-5 inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-white text-sm font-bold transition hover:opacity-90"
+                            disabled={isSubmitting}
+                            className="mt-5 inline-flex items-center gap-2 px-6 py-2.5 rounded-lg text-white text-sm font-bold transition hover:opacity-90 disabled:opacity-50"
                             style={{ background: "linear-gradient(135deg, #003366, #1d4ed8)" }}
                         >
                             <Plus size={16} />
-                            Create Admin Account
+                            {isSubmitting ? "Creating…" : "Create Admin Account"}
                         </button>
                     </div>
                 </div>
@@ -207,7 +246,6 @@ export default function ManagerPage() {
                             {admins.map((admin) => (
                                 <li key={admin.id} className="px-8 py-5 flex items-center justify-between gap-4 hover:bg-gray-50/60 transition-colors">
                                     <div className="flex items-center gap-4">
-                                        {/* Avatar */}
                                         <div
                                             className="w-10 h-10 rounded-full flex items-center justify-center text-white text-xs font-extrabold flex-shrink-0"
                                             style={{ background: "linear-gradient(135deg, #003366, #1d4ed8)" }}
@@ -222,7 +260,6 @@ export default function ManagerPage() {
                                         </div>
                                     </div>
 
-                                    {/* Delete / Confirm */}
                                     {confirmDelete === admin.id ? (
                                         <div className="flex items-center gap-2 flex-shrink-0">
                                             <span className="text-xs text-gray-500 font-medium">Remove this admin?</span>
@@ -253,10 +290,8 @@ export default function ManagerPage() {
                         </ul>
                     )}
                 </div>
-
             </div>
 
-            {/* ── Toast ── */}
             {toast && (
                 <Toast
                     message={toast.message}

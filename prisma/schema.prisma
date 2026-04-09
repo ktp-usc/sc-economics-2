@@ -6,21 +6,18 @@ datasource db {
   provider = "postgresql"
 }
 
-// teaching workshop or general event
 enum EventType {
   Teaching
   Workshop
   Event
 }
 
-// grade band we're targeting
 enum AgeGroup {
   K_5   @map("K-5")
   G6_8  @map("6-8")
   G9_12 @map("9-12")
 }
 
-// what kind of background the volunteer should have
 enum Expertise {
   Finance
   Teaching
@@ -29,7 +26,6 @@ enum Expertise {
   Outreach
 }
 
-// sc cities we run events in
 enum City {
   Columbia
   Greenville
@@ -40,31 +36,29 @@ enum City {
   Myrtle_Beach @map("Myrtle Beach")
 }
 
-// where an application sits in review
 enum ApplicationStatus {
   pending
   approved
   denied
 }
 
-// admin can manage events volunteers can sign up
 enum Role {
   admin
+  manager
   volunteer
 }
 
-// a registered user — volunteer or admin
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String?
   role      Role     @default(volunteer)
+  sessionToken String?  @unique
   createdAt DateTime @default(now())
 }
 
-// an event posted by admin
 model Event {
-  id          Int           @id @default(autoincrement())
+  id          Int             @id @default(autoincrement())
   title       String
   description String
   venue       String
@@ -72,18 +66,18 @@ model Event {
   type        EventType
   ageGroup    AgeGroup
   expertise   Expertise
-  date        DateTime      @db.Date
+  date        DateTime        @db.Date
   spotsTotal  Int
-  spotsFilled Int           @default(0)
-  createdAt   DateTime      @default(now())
+  spotsFilled Int             @default(0)
+  createdAt   DateTime        @default(now())
   signups     EventSignup[]
+  hoursLogs   VolunteerHours[]
 }
 
-// a volunteers signup for one specific event
 model EventSignup {
   id          Int      @id @default(autoincrement())
   eventId     Int
-  userId      Int
+  userId      String
   why         String
   fromTime    String
   toTime      String
@@ -93,8 +87,18 @@ model EventSignup {
   event       Event    @relation(fields: [eventId], references: [id])
 }
 
-// the application form a new volunteer submits
-// city is free text here they can live anywhere
+// Hours logged by an admin for a volunteer completing an event
+model VolunteerHours {
+  id          Int      @id @default(autoincrement())
+  userId      String   // Neon Auth user ID
+  userEmail   String   // denormalized for easy display without a join
+  eventId     Int
+  hours       Float
+  note        String?
+  loggedAt    DateTime @default(now())
+  event       Event    @relation(fields: [eventId], references: [id])
+}
+
 model Application {
   id              Int               @id @default(autoincrement())
   firstName       String
