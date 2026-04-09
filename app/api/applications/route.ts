@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { getAuthenticatedAdmin } from "@/lib/auth";
+import { getAuthenticatedStaff } from "@/lib/auth";
 
 /**
  * GET /api/applications
- * Admin only — returns all applications, optionally filtered by ?status=
+ * Staff (admin or manager) - returns all applications, optionally filtered by ?status=
  */
 export async function GET(req: NextRequest) {
-    const admin = await getAuthenticatedAdmin();
-    if (!admin) {
+    const staff = await getAuthenticatedStaff();
+    if (!staff) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

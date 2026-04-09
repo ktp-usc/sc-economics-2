@@ -17,8 +17,10 @@ export default function PortalGatePage() {
             .then((r) => (r.ok ? r.json() : null))
             .then((data) => {
                 if (!data) { navigate("/login"); return; }
+                // Managers share the admin panel for event/application management
                 const destinations: Record<string, string> = {
                     admin:     "/admin",
+                    manager:   "/admin",
                     volunteer: "/portal/volunteer",
                 };
                 navigate(destinations[data.role] ?? "/login");

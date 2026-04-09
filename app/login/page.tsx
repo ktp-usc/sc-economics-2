@@ -38,6 +38,7 @@ export default function LoginPage() {
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
 
+    // Redirect away if already logged in
     const { data: session } = authClient.useSession();
     useEffect(() => {
         if (session?.user) navigate("/");

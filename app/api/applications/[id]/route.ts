@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getAuthenticatedAdmin } from "@/lib/auth";
+import { getAuthenticatedStaff } from "@/lib/auth";
 import { ApplicationStatus } from "@prisma/client";
 
 const VALID_STATUSES = new Set<ApplicationStatus>([
@@ -15,9 +15,9 @@ export async function PATCH(
     request: NextRequest,
     { params }: { params: Promise<{ id: string }> }
 ) {
-    // ── 1. Auth check ────────────────────────────────────────────────────────
-    const admin = await getAuthenticatedAdmin();
-    if (!admin) {
+    // ── 1. Auth check (admin or manager) ───────────────────────────────────
+    const staff = await getAuthenticatedStaff();
+    if (!staff) {
         return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
