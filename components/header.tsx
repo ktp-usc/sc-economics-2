@@ -50,8 +50,11 @@ export default function Header(): React.JSX.Element {
     const isLoggedIn = !!me;
     const role = me?.role ?? null;
 
+    // Admins and managers both get the Admin nav link since they share
+    // access to event management, applications, and volunteer hours.
+    const isStaff = role === "admin" || role === "manager";
     const navItems = isLoggedIn
-        ? role === "admin"
+        ? isStaff
             ? [...VOLUNTEER_NAV, ADMIN_EXTRA]
             : VOLUNTEER_NAV
         : PUBLIC_NAV;
