@@ -1,11 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useNavigate } from "@/context/navigation";
 import { authClient } from "@/lib/auth/client";
 import { signInWithEmail, signUpWithEmail } from "./actions";
-
-// ── Icon components ───────────────────────────────────────────────────────
 
 const EyeIcon = () => (
     <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" xmlns="http://www.w3.org/2000/svg">
@@ -29,14 +27,11 @@ function Divider() {
     );
 }
 
-// ── Main page ─────────────────────────────────────────────────────────────
-
 export default function LoginPage() {
     const navigate = useNavigate();
     const [mode, setMode] = useState<"login" | "register">("login");
     const [showPassword, setShowPassword] = useState(false);
 
-    // Redirect away if already logged in
     const { data: session } = authClient.useSession();
     useEffect(() => {
         if (session?.user) navigate("/");
@@ -46,8 +41,8 @@ export default function LoginPage() {
     const [signUpState, signUpAction, signUpPending] = useActionState(signUpWithEmail, null);
 
     const formAction = mode === "login" ? signInAction : signUpAction;
-    const error = mode === "login" ? signInState?.error : signUpState?.error;
-    const isPending = mode === "login" ? signInPending : signUpPending;
+    const error      = mode === "login" ? signInState?.error : signUpState?.error;
+    const isPending  = mode === "login" ? signInPending : signUpPending;
 
     const inputCls =
         "w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-100 text-gray-900 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition";
@@ -89,9 +84,9 @@ export default function LoginPage() {
                                     onClick={() => setMode(m)}
                                     className="flex-1 py-2 rounded-md text-sm font-semibold transition-all"
                                     style={{
-                                        background: mode === m ? "#ffffff" : "transparent",
-                                        color: mode === m ? "#111827" : "#6b7280",
-                                        boxShadow: mode === m ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
+                                        background:  mode === m ? "#ffffff" : "transparent",
+                                        color:       mode === m ? "#111827" : "#6b7280",
+                                        boxShadow:   mode === m ? "0 1px 3px rgba(0,0,0,0.1)" : "none",
                                     }}
                                 >
                                     {m === "login" ? "Sign In" : "Register"}
@@ -123,17 +118,18 @@ export default function LoginPage() {
                             </div>
                         )}
 
+                        {/* FIX #3 — added id and htmlFor to all inputs and labels */}
                         <form action={formAction}>
-
                             <div className="flex flex-col gap-4">
 
-                                {/* Name field — only shown on register */}
+                                {/* Name — register only */}
                                 {mode === "register" && (
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-900 mb-1.5">
+                                        <label htmlFor="name" className="block text-sm font-semibold text-gray-900 mb-1.5">
                                             Full Name
                                         </label>
                                         <input
+                                            id="name"
                                             className={inputCls}
                                             name="name"
                                             type="text"
@@ -145,10 +141,11 @@ export default function LoginPage() {
 
                                 {/* Email */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-900 mb-1.5">
+                                    <label htmlFor="email" className="block text-sm font-semibold text-gray-900 mb-1.5">
                                         Email Address *
                                     </label>
                                     <input
+                                        id="email"
                                         className={inputCls}
                                         name="email"
                                         type="email"
@@ -160,11 +157,12 @@ export default function LoginPage() {
 
                                 {/* Password */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-900 mb-1.5">
+                                    <label htmlFor="password" className="block text-sm font-semibold text-gray-900 mb-1.5">
                                         Password *
                                     </label>
                                     <div className="relative">
                                         <input
+                                            id="password"
                                             className={inputCls + " pr-10"}
                                             name="password"
                                             type={showPassword ? "text" : "password"}
