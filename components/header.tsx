@@ -61,9 +61,10 @@ export default function Header(): React.JSX.Element {
 
     const handleSignOut = async () => {
         await authClient.signOut();
-        navigate("/");
-        // pathname change caused by navigate() will re-trigger the useEffect
-        // above, which will call /api/me → 401 → me=null → header resets.
+        setMe(null); // reset header immediately without waiting for /api/me
+        if (pathname !== "/") {
+            navigate("/");
+        }
     };
 
     return (
