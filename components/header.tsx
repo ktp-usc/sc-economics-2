@@ -13,20 +13,24 @@ interface Me {
 }
 
 const VOLUNTEER_NAV = [
-    { label: "Home",             href: "/" },
-    { label: "Apply",            href: "/volunteer" },
-    { label: "Events",           href: "/events" },
-    { label: "Volunteer Portal", href: "/portal" },
+    { label: "Home",             href: "/",         activePath: "/" },
+    { label: "Apply",            href: "/volunteer", activePath: "/volunteer" },
+    { label: "Events",           href: "/events",    activePath: "/events" },
+    { label: "Volunteer Portal", href: "/portal",    activePath: "/portal" },
 ];
 
-const ADMIN_EXTRA = { label: "Admin", href: "/admin" };
+const ADMIN_EXTRA = { label: "Admin", href: "/admin", activePath: "/admin" };
 
-// When not logged in, Apply points directly to /login (auth required to apply).
-// This prevents the /volunteer → /login → /volunteer redirect loop that causes
-// a blank page when the user clicks Apply a second time from the login page.
+// When not logged in, the nav shows the same labels as the logged-in nav so the
+// layout doesn't shift. Auth-gated links point directly to /login to avoid a
+// server-side redirect bounce (/events → /login) which fires the fade transition
+// twice and leaves the page stuck blank.
+// activePath is the real destination used only for the active highlight check.
 const PUBLIC_NAV = [
-    { label: "Home",  href: "/" },
-    { label: "Apply", href: "/login" },
+    { label: "Home",             href: "/",      activePath: "/" },
+    { label: "Apply",            href: "/login", activePath: "/volunteer" },
+    { label: "Events",           href: "/login", activePath: "/events" },
+    { label: "Volunteer Portal", href: "/login", activePath: "/portal" },
 ];
 
 export default function Header(): React.JSX.Element {
@@ -80,15 +84,15 @@ export default function Header(): React.JSX.Element {
 
                 {/* Nav links + auth controls */}
                 <nav className="flex items-center gap-1">
-                    {navItems.map(({ label, href }) => (
+                    {navItems.map(({ label, href, activePath }) => (
                         <button
-                            key={href}
+                            key={label}
                             // Guard prevents triggering a fade-out when already
                             // on this page (which would leave the page blank).
                             onClick={() => { if (pathname !== href) navigate(href); }}
                             className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                             style={{
-                                backgroundColor: pathname === href ? "#1d4ed8" : "transparent",
+                                backgroundColor: pathname === activePath ? "#1d4ed8" : "transparent",
                             }}
                         >
                             {label}
