@@ -36,6 +36,12 @@ export default function LoginPage() {
     const [mode, setMode] = useState<"login" | "register">("login");
     const [showPassword, setShowPassword] = useState(false);
 
+    // Controlled input state so field values persist when a server action
+    // returns an error (React resets uncontrolled forms after action completion)
+    const [name, setName] = useState("");
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+
     // Redirect away if already logged in
     const { data: session } = authClient.useSession();
     useEffect(() => {
@@ -87,11 +93,12 @@ export default function LoginPage() {
                     {/* Body */}
                     <div className="px-8 py-7">
 
-                        {/* Mode toggle */}
+                        {/* Mode toggle - type="button" prevents accidental form submission */}
                         <div className="flex bg-gray-100 rounded-lg p-1 mb-6">
                             {(["login", "register"] as const).map((m) => (
                                 <button
                                     key={m}
+                                    type="button"
                                     onClick={() => setMode(m)}
                                     className="flex-1 py-2 rounded-md text-sm font-semibold transition-all"
                                     style={{
@@ -125,41 +132,48 @@ export default function LoginPage() {
                                 {/* Name field — only shown on register */}
                                 {mode === "register" && (
                                     <div>
-                                        <label className="block text-sm font-semibold text-gray-900 mb-1.5">
+                                        <label htmlFor="auth-name" className="block text-sm font-semibold text-gray-900 mb-1.5">
                                             Full Name
                                         </label>
                                         <input
+                                            id="auth-name"
                                             className={inputCls}
                                             name="name"
                                             type="text"
                                             placeholder="Jane Doe"
                                             autoComplete="name"
+                                            value={name}
+                                            onChange={(e) => setName(e.target.value)}
                                         />
                                     </div>
                                 )}
 
                                 {/* Email */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-900 mb-1.5">
+                                    <label htmlFor="auth-email" className="block text-sm font-semibold text-gray-900 mb-1.5">
                                         Email Address *
                                     </label>
                                     <input
+                                        id="auth-email"
                                         className={inputCls}
                                         name="email"
                                         type="email"
                                         required
                                         placeholder="you@email.com"
                                         autoComplete="email"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
                                     />
                                 </div>
 
                                 {/* Password */}
                                 <div>
-                                    <label className="block text-sm font-semibold text-gray-900 mb-1.5">
+                                    <label htmlFor="auth-password" className="block text-sm font-semibold text-gray-900 mb-1.5">
                                         Password *
                                     </label>
                                     <div className="relative">
                                         <input
+                                            id="auth-password"
                                             className={inputCls + " pr-10"}
                                             name="password"
                                             type={showPassword ? "text" : "password"}
@@ -167,6 +181,8 @@ export default function LoginPage() {
                                             minLength={mode === "register" ? 8 : undefined}
                                             placeholder="••••••••"
                                             autoComplete={mode === "login" ? "current-password" : "new-password"}
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
                                         />
                                         <button
                                             type="button"
@@ -199,6 +215,7 @@ export default function LoginPage() {
                         <p className="text-center text-xs text-gray-500 mt-5">
                             {mode === "login" ? "Don't have an account? " : "Already have an account? "}
                             <button
+                                type="button"
                                 onClick={() => setMode(mode === "login" ? "register" : "login")}
                                 className="font-semibold text-[#003366] hover:underline"
                             >
