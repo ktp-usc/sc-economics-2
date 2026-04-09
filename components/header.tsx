@@ -65,12 +65,12 @@ export default function Header(): React.JSX.Element {
 
     return (
         <header
-            className="text-white shadow-lg sticky top-0 z-50"
+            className="text-white shadow-lg sticky top-0 z-50 w-full overflow-hidden"
             style={{ background: "linear-gradient(135deg, #003366 0%, #1d4ed8 100%)" }}
         >
-            <div className="mx-auto px-6 flex items-center justify-between h-[70px]">
+            <div className="w-full mx-auto px-4 flex items-center justify-between h-[70px] min-w-0">
                 {/* Logo */}
-                <button onClick={() => navigate("/")} className="flex items-center gap-3">
+                <button onClick={() => navigate("/")} className="flex items-center gap-3 shrink-0">
                     <img
                         src="/SC-Econ-logo.png"
                         alt="SC Economics"
@@ -79,14 +79,14 @@ export default function Header(): React.JSX.Element {
                 </button>
 
                 {/* Nav links + auth controls */}
-                <nav className="flex items-center gap-1">
+                <nav className="flex items-center gap-1 overflow-x-auto min-w-0 scrollbar-none">
                     {navItems.map(({ label, href }) => (
                         <button
                             key={href}
                             // Guard prevents triggering a fade-out when already
                             // on this page (which would leave the page blank).
                             onClick={() => { if (pathname !== href) navigate(href); }}
-                            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors"
+                            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
                             style={{
                                 backgroundColor: pathname === href ? "#1d4ed8" : "transparent",
                             }}
@@ -95,10 +95,9 @@ export default function Header(): React.JSX.Element {
                         </button>
                     ))}
 
-                    {/* Auth section */}
                     {/* Auth section — always reserve space so nav items don't shift
                         when the Login button appears after the /api/me fetch */}
-                    <div className="ml-3 pl-3 border-l border-white/30 flex items-center min-w-[80px]">
+                    <div className="ml-3 pl-3 border-l border-white/30 flex items-center min-w-[80px] shrink-0">
                         {!isPending && (
                             isLoggedIn ? (
                                 <div className="flex items-center gap-2">
