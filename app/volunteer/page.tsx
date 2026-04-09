@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CheckCircle } from "lucide-react";
 import { postJSON } from "@/client/api/jsonutils";
-import Image from "next/image";
+import { authClient } from "@/lib/auth/client";
 
 const inputCls =
     "w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-100 text-gray-900 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition";
@@ -64,6 +64,21 @@ export default function ApplyPage() {
     const [submitting, setSubmitting] = useState(false);
     const [serverError, setServerError] = useState<string | null>(null);
 
+    // FIX #6 — pre-fill email and name from session
+    const { data: session } = authClient.useSession();
+    useEffect(() => {
+        if (session?.user) {
+            const fullName = session.user.name ?? "";
+            const parts = fullName.trim().split(" ");
+            setForm((prev) => ({
+                ...prev,
+                firstName: parts[0] ?? "",
+                lastName:  parts.slice(1).join(" ") ?? "",
+                email:     session.user.email ?? "",
+            }));
+        }
+    }, [session]);
+
     const set = <K extends keyof FormState>(k: K, v: FormState[K]) => {
         setForm((prev) => ({ ...prev, [k]: v }));
         setErrors((prev) => { const next = { ...prev }; delete next[k]; return next; });
@@ -105,11 +120,7 @@ export default function ApplyPage() {
                 style={{ background: "linear-gradient(135deg, #003366 0%, #1d4ed8 100%)" }}
             >
                 <div className="max-w-3xl mx-auto flex items-center gap-6">
-                    <img
-                        src="/SC-Econ-logo.png"
-                        alt="SC Economics"
-                        className="h-14 w-auto shrink-0"
-                    />
+                    <img src="/SC-Econ-logo.png" alt="SC Economics" className="h-14 w-auto shrink-0" />
                     <div>
                         <h1 className="text-3xl font-bold mb-2">Volunteer Application</h1>
                         <p className="text-blue-200 text-base">
@@ -125,6 +136,7 @@ export default function ApplyPage() {
                 <div className="bg-white rounded-xl p-10 shadow-sm">
 
                     {/* Personal Information */}
+                    {/* FIX #3 — added id and htmlFor to all inputs/labels */}
                     <h2 className={sectionHeadCls}>Personal Information</h2>
                     <div className="grid grid-cols-2 gap-5 mb-9">
                         {(
@@ -136,8 +148,10 @@ export default function ApplyPage() {
                             ] as [string, keyof FormState, string][]
                         ).map(([lbl, key, type]) => (
                             <div key={key}>
-                                <label className={labelCls}>{lbl}</label>
+                                <label htmlFor={key} className={labelCls}>{lbl}</label>
                                 <input
+                                    id={key}
+                                    name={key}
                                     className={inputCls + (errors[key] ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
                                     type={type}
                                     value={form[key] as string}
@@ -152,20 +166,34 @@ export default function ApplyPage() {
                     <h2 className={sectionHeadCls}>Address</h2>
                     <div className="flex flex-col gap-5 mb-9">
                         <div>
-                            <label className={labelCls}>Street Address *</label>
-                            <input className={inputCls + (errors.street ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")} value={form.street} onChange={(e) => set("street", e.target.value)} />
+                            <label htmlFor="street" className={labelCls}>Street Address *</label>
+                            <input
+                                id="street"
+                                name="street"
+                                className={inputCls + (errors.street ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
+                                value={form.street}
+                                onChange={(e) => set("street", e.target.value)}
+                            />
                             {errors.street && <p className={errorCls}>{errors.street}</p>}
                         </div>
                         <div className="grid grid-cols-3 gap-5">
                             <div>
-                                <label className={labelCls}>City *</label>
-                                <input className={inputCls + (errors.city ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")} value={form.city} onChange={(e) => set("city", e.target.value)} />
+                                <label htmlFor="city" className={labelCls}>City *</label>
+                                <input
+                                    id="city"
+                                    name="city"
+                                    className={inputCls + (errors.city ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
+                                    value={form.city}
+                                    onChange={(e) => set("city", e.target.value)}
+                                />
                                 {errors.city && <p className={errorCls}>{errors.city}</p>}
                             </div>
                             <div>
-                                <label className={labelCls}>State *</label>
+                                <label htmlFor="state" className={labelCls}>State *</label>
                                 <div className="relative">
                                     <select
+                                        id="state"
+                                        name="state"
                                         className={inputCls + " appearance-none pr-8 cursor-pointer"}
                                         value={form.state}
                                         onChange={(e) => set("state", e.target.value)}
@@ -174,14 +202,18 @@ export default function ApplyPage() {
                                             <option key={s}>{s}</option>
                                         ))}
                                     </select>
-                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">
-                    ▾
-                  </span>
+                                    <span className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-gray-500 text-xs">▾</span>
                                 </div>
                             </div>
                             <div>
-                                <label className={labelCls}>ZIP Code *</label>
-                                <input className={inputCls + (errors.zip ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")} value={form.zip} onChange={(e) => set("zip", e.target.value)} />
+                                <label htmlFor="zip" className={labelCls}>ZIP Code *</label>
+                                <input
+                                    id="zip"
+                                    name="zip"
+                                    className={inputCls + (errors.zip ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
+                                    value={form.zip}
+                                    onChange={(e) => set("zip", e.target.value)}
+                                />
                                 {errors.zip && <p className={errorCls}>{errors.zip}</p>}
                             </div>
                         </div>
@@ -190,10 +222,10 @@ export default function ApplyPage() {
                     {/* Availability */}
                     <h2 className={sectionHeadCls}>Availability</h2>
                     <div className="mb-9">
-                        <label className={labelCls + " mb-3.5"}>
+                        <label htmlFor="days" className={labelCls + " mb-3.5"}>
                             What days are you available? *
                         </label>
-                        <div className="grid grid-cols-4 gap-2.5">
+                        <div id="days" className="grid grid-cols-4 gap-2.5">
                             {DAYS.map((d) => (
                                 <label key={d} className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
                                     <input
@@ -213,8 +245,10 @@ export default function ApplyPage() {
                     <h2 className={sectionHeadCls}>Skills & Experience</h2>
                     <div className="flex flex-col gap-5 mb-9">
                         <div>
-                            <label className={labelCls}>Relevant Skills *</label>
+                            <label htmlFor="skills" className={labelCls}>Relevant Skills *</label>
                             <textarea
+                                id="skills"
+                                name="skills"
                                 className={inputCls + " min-h-[88px] resize-y" + (errors.skills ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
                                 value={form.skills}
                                 onChange={(e) => set("skills", e.target.value)}
@@ -223,8 +257,10 @@ export default function ApplyPage() {
                             {errors.skills && <p className={errorCls}>{errors.skills}</p>}
                         </div>
                         <div>
-                            <label className={labelCls}>Previous Volunteer Experience</label>
+                            <label htmlFor="experience" className={labelCls}>Previous Volunteer Experience</label>
                             <textarea
+                                id="experience"
+                                name="experience"
                                 className={inputCls + " min-h-[88px] resize-y"}
                                 value={form.experience}
                                 onChange={(e) => set("experience", e.target.value)}
@@ -232,10 +268,12 @@ export default function ApplyPage() {
                             />
                         </div>
                         <div>
-                            <label className={labelCls}>
+                            <label htmlFor="motivation" className={labelCls}>
                                 Why do you want to volunteer with SC Economics? *
                             </label>
                             <textarea
+                                id="motivation"
+                                name="motivation"
                                 className={inputCls + " min-h-[88px] resize-y" + (errors.motivation ? " border-red-400 focus:border-red-400 focus:ring-red-100" : "")}
                                 value={form.motivation}
                                 onChange={(e) => set("motivation", e.target.value)}
@@ -251,6 +289,8 @@ export default function ApplyPage() {
                         <div>
                             <label className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-700">
                                 <input
+                                    id="background"
+                                    name="background"
                                     type="checkbox"
                                     checked={form.background}
                                     onChange={(e) => set("background", e.target.checked)}
@@ -263,6 +303,8 @@ export default function ApplyPage() {
                         <div>
                             <label className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-700">
                                 <input
+                                    id="dataConsent"
+                                    name="dataConsent"
                                     type="checkbox"
                                     checked={form.dataConsent}
                                     onChange={(e) => set("dataConsent", e.target.checked)}
@@ -273,7 +315,6 @@ export default function ApplyPage() {
                             {errors.dataConsent && <p className={errorCls + " ml-6"}>{errors.dataConsent}</p>}
                         </div>
                     </div>
-
 
                     {/* Actions */}
                     {serverError && (
@@ -289,7 +330,17 @@ export default function ApplyPage() {
                         <button
                             onClick={async () => {
                                 const errs = validate(form);
-                                if (Object.keys(errs).length > 0) { setErrors(errs); return; }
+                                if (Object.keys(errs).length > 0) {
+                                    setErrors(errs);
+                                    // FIX #7 — scroll to the first error field in DOM order
+                                    const firstKey = Object.keys(errs)[0];
+                                    const el = document.getElementById(firstKey);
+                                    if (el) {
+                                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                                        el.focus();
+                                    }
+                                    return;
+                                }
                                 setSubmitting(true);
                                 setServerError(null);
                                 try {
