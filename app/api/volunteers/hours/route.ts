@@ -72,6 +72,7 @@ export async function POST(req: NextRequest) {
                 hours,
                 note: note ?? null,
             },
+            include: { event: { select: { id: true, title: true, date: true } } },
         });
 
         return NextResponse.json(log, { status: 201 });
