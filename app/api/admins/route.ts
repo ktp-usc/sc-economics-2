@@ -5,12 +5,12 @@ import { auth } from "@/lib/auth/server";
 
 /**
  * GET /api/admins
- * Admin only — lists all admin accounts.
+ * Admin only — lists all admin accounts. Managers receive 403.
  */
 export async function GET() {
     const admin = await getAuthenticatedAdmin();
     if (!admin) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const admins = await db.user.findMany({
@@ -24,13 +24,13 @@ export async function GET() {
 
 /**
  * POST /api/admins
- * Admin only — creates a new admin account.
+ * Admin only — creates a new admin account. Managers receive 403.
  * Body: { email, password }
  */
 export async function POST(req: NextRequest) {
     const admin = await getAuthenticatedAdmin();
     if (!admin) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     let body: unknown;

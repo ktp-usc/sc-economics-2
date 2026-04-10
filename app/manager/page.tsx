@@ -55,7 +55,7 @@ export default function ManagerPage() {
             const meRes = await fetch("/api/me");
             if (!meRes.ok) { navigate("/login"); return; }
             const me = await meRes.json();
-            if (me.role !== "admin") { navigate("/login"); return; }
+            if (me.role !== "admin") { navigate("/login"); return; } // admin-only: managers are blocked
 
             const res = await fetch("/api/admins");
             if (res.ok) setAdmins(await res.json());
