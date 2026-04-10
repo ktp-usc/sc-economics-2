@@ -55,7 +55,7 @@ export async function PATCH(
 
     try {
         const body = await req.json();
-        const { title, description, venue, city, type, ageGroup, expertise, date, spotsTotal } = body;
+        const { title, description, venue, city, type, ageGroup, expertise, date, spotsTotal, imageUrl } = body;
 
         // ── Validate only the fields that were actually sent ───────────────
         if (type      !== undefined && !EVENT_TYPES.includes(type)) {
@@ -89,7 +89,7 @@ export async function PATCH(
                 ...(expertise   !== undefined && { expertise }),
                 ...(date        !== undefined && { date: new Date(date) }),
                 ...(spotsTotal  !== undefined && { spotsTotal }),
-                // gradient + emoji are NOT in the DB — derived on the way out
+                ...(imageUrl    !== undefined && { imageUrl: imageUrl || null }),
             },
         });
 
@@ -119,7 +119,12 @@ export async function DELETE(
     }
 
     try {
-        await db.event.delete({ where: { id: numericId } });
+        // Delete related signups and hours logs first, then the event
+        await db.$transaction([
+            db.eventSignup.deleteMany({ where: { eventId: numericId } }),
+            db.volunteerHours.deleteMany({ where: { eventId: numericId } }),
+            db.event.delete({ where: { id: numericId } }),
+        ]);
         return NextResponse.json({ message: `Event ${id} deleted successfully.` }, { status: 200 });
     } catch (err) {
         if (isPrismaNotFound(err)) {

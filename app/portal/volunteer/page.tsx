@@ -9,6 +9,9 @@ import {
   MapPin,
   CheckCircle2,
   Circle,
+  Info,
+  XCircle,
+  Award,
 } from "lucide-react";
 
 // -- Types for API responses --------------------------------------------------
@@ -17,6 +20,7 @@ interface Me {
   email: string;
   name: string | null;
   role: string;
+  applicationStatus: "pending" | "approved" | "denied" | null;
 }
 
 interface SignupEvent {
@@ -30,8 +34,6 @@ interface SignupEvent {
 interface Signup {
   id: number;
   eventId: number;
-  fromTime: string;
-  toTime: string;
   createdAt: string;
   event: SignupEvent;
 }
@@ -164,6 +166,53 @@ function SignupRow({ signup, hoursForEvent }: { signup: Signup; hoursForEvent: n
   );
 }
 
+// -- Badges -------------------------------------------------------------------
+
+interface BadgeDef {
+  label: string;
+  emoji: string;
+  tooltip: string;
+  color: string; // tailwind bg class for the earned state
+}
+
+const EVENT_BADGES: (BadgeDef & { threshold: number })[] = [
+  { threshold: 1,   label: "First Step",       emoji: "👣", tooltip: "Participate in 1 event",    color: "bg-blue-100 text-blue-700 border-blue-200" },
+  { threshold: 5,   label: "Helping Hand",      emoji: "🤝", tooltip: "Participate in 5 events",   color: "bg-green-100 text-green-700 border-green-200" },
+  { threshold: 10,  label: "Dedicated",          emoji: "⭐", tooltip: "Participate in 10 events",  color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+  { threshold: 25,  label: "Community Pillar",   emoji: "🏛️", tooltip: "Participate in 25 events",  color: "bg-purple-100 text-purple-700 border-purple-200" },
+  { threshold: 50,  label: "Champion",           emoji: "🏆", tooltip: "Participate in 50 events",  color: "bg-amber-100 text-amber-700 border-amber-200" },
+  { threshold: 100, label: "Legend",             emoji: "👑", tooltip: "Participate in 100 events", color: "bg-rose-100 text-rose-700 border-rose-200" },
+];
+
+const HOURS_BADGES: (BadgeDef & { threshold: number })[] = [
+  { threshold: 5,    label: "Getting Started",  emoji: "🌱", tooltip: "Log 5 volunteer hours",    color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+  { threshold: 25,   label: "Committed",         emoji: "💪", tooltip: "Log 25 volunteer hours",   color: "bg-sky-100 text-sky-700 border-sky-200" },
+  { threshold: 50,   label: "Tireless",           emoji: "🔥", tooltip: "Log 50 volunteer hours",   color: "bg-orange-100 text-orange-700 border-orange-200" },
+  { threshold: 100,  label: "Centurion",          emoji: "💯", tooltip: "Log 100 volunteer hours",  color: "bg-indigo-100 text-indigo-700 border-indigo-200" },
+  { threshold: 250,  label: "Trailblazer",        emoji: "🚀", tooltip: "Log 250 volunteer hours",  color: "bg-fuchsia-100 text-fuchsia-700 border-fuchsia-200" },
+  { threshold: 500,  label: "Hall of Fame",       emoji: "🌟", tooltip: "Log 500 volunteer hours",  color: "bg-yellow-100 text-yellow-700 border-yellow-200" },
+];
+
+function Badge({ badge, earned }: { badge: BadgeDef; earned: boolean }) {
+  return (
+    <div className="relative group">
+      <div
+        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm font-semibold transition select-none ${
+          earned ? badge.color : "bg-gray-100 text-gray-400 border-gray-200 opacity-50"
+        }`}
+      >
+        <span className="text-base">{badge.emoji}</span>
+        {badge.label}
+      </div>
+      {/* Tooltip */}
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 rounded-lg bg-gray-900 text-white text-xs font-medium whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity z-10">
+        {badge.tooltip}
+        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900" />
+      </div>
+    </div>
+  );
+}
+
 // -- Page ---------------------------------------------------------------------
 
 export default function VolunteerPortalPage() {
@@ -205,6 +254,9 @@ export default function VolunteerPortalPage() {
   const now = new Date();
   const upcomingSignups = signups.filter((s) => new Date(s.event.date) > now);
   const pastSignups = signups.filter((s) => new Date(s.event.date) <= now);
+
+  // Events with confirmed participation (staff logged hours for them)
+  const confirmedEventCount = hoursByEvent.size;
 
   // Filter state for the events tab
   const [filter, setFilter] = useState<"all" | "upcoming" | "past">("all");
@@ -290,6 +342,26 @@ export default function VolunteerPortalPage() {
 
       {/* Body */}
       <div className="max-w-5xl mx-auto px-4 py-8">
+        {/* Application status banner */}
+        {me.applicationStatus === "pending" && (
+          <div className="mb-6 flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-5 py-4 text-amber-800 text-sm font-medium shadow-sm">
+            <Info className="w-5 h-5 text-amber-500 shrink-0" />
+            <p>Your volunteer application is under review. We&apos;ll notify you once it&apos;s been processed. In the meantime, feel free to browse upcoming events.</p>
+          </div>
+        )}
+        {me.applicationStatus === "denied" && (
+          <div className="mb-6 flex items-center gap-3 bg-red-50 border border-red-200 rounded-xl px-5 py-4 text-red-800 text-sm font-medium shadow-sm">
+            <XCircle className="w-5 h-5 text-red-500 shrink-0" />
+            <p>Your volunteer application was not approved. You may submit a new application if your circumstances have changed.</p>
+          </div>
+        )}
+        {me.applicationStatus === null && (
+          <div className="mb-6 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-5 py-4 text-blue-800 text-sm font-medium shadow-sm">
+            <Info className="w-5 h-5 text-blue-500 shrink-0" />
+            <p>Welcome! To get started, <a href="/volunteer" className="underline font-bold hover:text-blue-900">submit a volunteer application</a> so you can sign up for events.</p>
+          </div>
+        )}
+
         {/* OVERVIEW TAB */}
         {activeTab === "overview" && (
           <div className="flex flex-col gap-8">
@@ -311,6 +383,28 @@ export default function VolunteerPortalPage() {
                   color="#1d4ed8"
                   sub="events"
                 />
+              </div>
+            </div>
+
+            {/* Badges */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <Award size={20} className="text-[#1e3a5f]" />
+                <h2 className="text-lg font-bold text-[#1e3a5f]">Badges</h2>
+              </div>
+              <div className="bg-white rounded-2xl p-6 shadow-sm border border-blue-50">
+                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Event Milestones</h3>
+                <div className="flex flex-wrap gap-2 mb-5">
+                  {EVENT_BADGES.map((b) => (
+                    <Badge key={b.label} badge={b} earned={confirmedEventCount >= b.threshold} />
+                  ))}
+                </div>
+                <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Hours Milestones</h3>
+                <div className="flex flex-wrap gap-2">
+                  {HOURS_BADGES.map((b) => (
+                    <Badge key={b.label} badge={b} earned={hoursData.totalHours >= b.threshold} />
+                  ))}
+                </div>
               </div>
             </div>
 

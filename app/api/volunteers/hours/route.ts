@@ -47,11 +47,11 @@ export async function POST(req: NextRequest) {
 
     try {
         const body = await req.json();
-        const { userId, userEmail, eventId, hours, note } = body;
+        const { userEmail, eventId, hours, note } = body;
 
-        if (!userId || !userEmail || !eventId || hours === undefined) {
+        if (!userEmail || !eventId || hours === undefined) {
             return NextResponse.json(
-                { error: "userId, userEmail, eventId, and hours are required." },
+                { error: "userEmail, eventId, and hours are required." },
                 { status: 400 }
             );
         }
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
         const log = await db.volunteerHours.create({
             data: {
-                userId,
+                userId: userEmail,
                 userEmail,
                 eventId: Number(eventId),
                 hours,

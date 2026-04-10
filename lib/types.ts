@@ -19,6 +19,7 @@ export interface VolunteerEvent {
     spotsFilled: number;
     gradient: string;
     emoji: string;
+    imageUrl?: string | null;
 }
 
 // Auto-assigned visual theme per expertise

@@ -69,6 +69,7 @@ model Event {
   date        DateTime        @db.Date
   spotsTotal  Int
   spotsFilled Int             @default(0)
+  imageUrl    String?
   createdAt   DateTime        @default(now())
   signups     EventSignup[]
   hoursLogs   VolunteerHours[]

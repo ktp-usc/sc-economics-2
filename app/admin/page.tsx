@@ -1,12 +1,22 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
     CheckCircle, XCircle, Users, Calendar, ClipboardList,
     ChevronDown, ChevronUp, Search, X, AlertCircle,
-    Mail, Phone, MapPin, Star, Clock, Plus, Trash2,
+    Mail, Phone, MapPin, Star, Clock, Plus, Trash2, Pencil,
 } from "lucide-react";
 import { useNavigate } from "@/context/navigation";
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+/** Normalize a phone string to XXX-XXX-XXXX (US) or return as-is for others. */
+function formatPhone(raw: string): string {
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+    if (digits.length === 11 && digits[0] === "1") return `${digits.slice(1, 4)}-${digits.slice(4, 7)}-${digits.slice(7)}`;
+    return raw; // international or unusual — return unchanged
+}
 
 // ─── Types (matching DB schema) ───────────────────────────────────────────────
 
@@ -42,6 +52,7 @@ interface AdminEvent {
     date: string;
     spotsTotal: number;
     spotsFilled: number;
+    imageUrl?: string | null;
 }
 
 interface HoursLog {
@@ -104,6 +115,36 @@ function displayEnum(val: string) {
     return AGE_MAP[val] ?? val.replace(/_/g, " ");
 }
 
+// ─── EXPANDABLE TEXT ──────────────────────────────────────────────────────────
+
+function ExpandableText({ text, clampClass = "line-clamp-2" }: { text: string; clampClass?: string }) {
+    const [expanded, setExpanded] = useState(false);
+    const [isClamped, setIsClamped] = useState(false);
+    const ref = useRef<HTMLParagraphElement>(null);
+
+    useEffect(() => {
+        const el = ref.current;
+        if (el) setIsClamped(el.scrollHeight > el.clientHeight);
+    }, [text]);
+
+    return (
+        <div>
+            <p ref={expanded ? undefined : ref} className={`text-sm text-gray-600 whitespace-pre-line ${expanded ? "" : clampClass}`}>
+                {text}
+            </p>
+            {(isClamped || expanded) && (
+                <button
+                    type="button"
+                    onClick={() => setExpanded((p) => !p)}
+                    className="text-xs font-semibold text-blue-600 hover:text-blue-800 mt-1 transition"
+                >
+                    {expanded ? "Show less" : "Show more"}
+                </button>
+            )}
+        </div>
+    );
+}
+
 // ─── CREATE EVENT MODAL ───────────────────────────────────────────────────────
 
 function CreateEventModal({
@@ -122,8 +163,52 @@ function CreateEventModal({
     const [expertise,   setExpertise]   = useState("");
     const [date,        setDate]        = useState("");
     const [spotsTotal,  setSpotsTotal]  = useState("");
+    const [imageUrl,    setImageUrl]    = useState("");
+    const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [error,       setError]       = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith("image/")) {
+            setError("Please select an image file (JPEG, PNG, WebP, etc.).");
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            setError("Image must be under 5 MB.");
+            return;
+        }
+        // Resize & compress client-side so the base64 payload stays small
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            const MAX = 1200;
+            let w = img.width, h = img.height;
+            if (w > MAX || h > MAX) {
+                const scale = MAX / Math.max(w, h);
+                w = Math.round(w * scale);
+                h = Math.round(h * scale);
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = w;
+            canvas.height = h;
+            canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+            setImageUrl(dataUrl);
+            setImagePreview(dataUrl);
+            setError("");
+        };
+        img.src = objectUrl;
+    };
+
+    const removeImage = () => {
+        setImageUrl("");
+        setImagePreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
 
     const fieldCls = "w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition";
 
@@ -156,6 +241,7 @@ function CreateEventModal({
                     title: title.trim(), description: description.trim(),
                     venue: venue.trim(), city, type, ageGroup, expertise,
                     date, spotsTotal: spots,
+                    ...(imageUrl && { imageUrl }),
                 }),
             });
             if (!res.ok) {
@@ -250,6 +336,38 @@ function CreateEventModal({
                             <input className={fieldCls} type="number" min="1" placeholder="e.g. 10" value={spotsTotal} onChange={(e) => setSpotsTotal(e.target.value)} />
                         </div>
                     </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Event Image <span className="text-xs font-normal text-gray-400">(optional)</span></label>
+                        {imagePreview ? (
+                            <div className="relative rounded-lg overflow-hidden border border-gray-200">
+                                <img src={imagePreview} alt="Preview" className="w-full h-36 object-cover" />
+                                <button
+                                    type="button"
+                                    onClick={removeImage}
+                                    className="absolute top-2 right-2 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition"
+                                >
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                className="w-full h-24 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/50 transition flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-blue-500"
+                            >
+                                <Plus className="w-5 h-5" />
+                                <span className="text-xs font-medium">Upload image (max 2 MB)</span>
+                            </button>
+                        )}
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={handleImageFile}
+                        />
+                    </div>
                 </div>
 
                 <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
@@ -261,6 +379,210 @@ function CreateEventModal({
                         style={{ background: "linear-gradient(135deg, #003366, #1d4ed8)" }}
                     >
                         {isSubmitting ? "Creating…" : "Create Event"}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ─── EDIT EVENT MODAL ─────────────────────────────────────────────────────────
+
+function EditEventModal({
+                            event,
+                            onClose,
+                            onUpdate,
+                        }: {
+    event: AdminEvent;
+    onClose: () => void;
+    onUpdate: (updated: AdminEvent) => void;
+}) {
+    const [title,       setTitle]       = useState(event.title);
+    const [description, setDescription] = useState(event.description);
+    const [venue,       setVenue]       = useState(event.venue);
+    const [city,        setCity]        = useState(event.city);
+    const [type,        setType]        = useState(event.type);
+    const [ageGroup,    setAgeGroup]    = useState(event.ageGroup);
+    const [expertise,   setExpertise]   = useState(event.expertise);
+    const [date,        setDate]        = useState(event.date.slice(0, 10));
+    const [spotsTotal,  setSpotsTotal]  = useState(String(event.spotsTotal));
+    const [imageUrl,    setImageUrl]    = useState(event.imageUrl ?? "");
+    const [imagePreview, setImagePreview] = useState<string | null>(event.imageUrl ?? null);
+    const [error,       setError]       = useState("");
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const fieldCls = "w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition";
+
+    const handleImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        if (!file.type.startsWith("image/")) { setError("Please select an image file."); return; }
+        if (file.size > 5 * 1024 * 1024) { setError("Image must be under 5 MB."); return; }
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
+        img.onload = () => {
+            URL.revokeObjectURL(objectUrl);
+            const MAX = 1200;
+            let w = img.width, h = img.height;
+            if (w > MAX || h > MAX) { const s = MAX / Math.max(w, h); w = Math.round(w * s); h = Math.round(h * s); }
+            const canvas = document.createElement("canvas");
+            canvas.width = w; canvas.height = h;
+            canvas.getContext("2d")!.drawImage(img, 0, 0, w, h);
+            const dataUrl = canvas.toDataURL("image/jpeg", 0.75);
+            setImageUrl(dataUrl);
+            setImagePreview(dataUrl);
+            setError("");
+        };
+        img.src = objectUrl;
+    };
+
+    const removeImage = () => {
+        setImageUrl("");
+        setImagePreview(null);
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    const handleSubmit = async () => {
+        setError("");
+        if (!title.trim() || !description.trim() || !venue.trim() || !city || !type || !ageGroup || !expertise || !date || !spotsTotal) {
+            setError("All fields are required.");
+            return;
+        }
+        const spots = parseInt(spotsTotal, 10);
+        if (isNaN(spots) || spots < 1) { setError("Total spots must be a positive number."); return; }
+        if (spots < event.spotsFilled) { setError(`Total spots cannot be less than ${event.spotsFilled} (already filled).`); return; }
+
+        setIsSubmitting(true);
+        try {
+            const res = await fetch(`/api/events/${event.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    title: title.trim(), description: description.trim(),
+                    venue: venue.trim(), city, type, ageGroup, expertise,
+                    date, spotsTotal: spots,
+                    imageUrl: imageUrl || null,
+                }),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                setError(data.error ?? "Failed to update event.");
+                return;
+            }
+            const updated = await res.json();
+            onUpdate({ ...updated, date: updated.date ?? date });
+            onClose();
+        } catch {
+            setError("Failed to update event.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg my-4">
+                <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                    <div>
+                        <h3 className="font-bold text-[#1e3a5f] text-base">Edit Event</h3>
+                        <p className="text-xs text-gray-500 mt-0.5">Update event details</p>
+                    </div>
+                    <button onClick={onClose} className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition">
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                <div className="px-6 py-5 flex flex-col gap-4">
+                    {error && (
+                        <div className="px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 shrink-0" /> {error}
+                        </div>
+                    )}
+
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Title <span className="text-red-500">*</span></label>
+                        <input className={fieldCls} type="text" value={title} onChange={(e) => setTitle(e.target.value)} />
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Description <span className="text-red-500">*</span></label>
+                        <textarea className={fieldCls + " resize-none"} rows={3} value={description} onChange={(e) => setDescription(e.target.value)} />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Venue <span className="text-red-500">*</span></label>
+                            <input className={fieldCls} type="text" value={venue} onChange={(e) => setVenue(e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">City <span className="text-red-500">*</span></label>
+                            <select className={fieldCls} value={city} onChange={(e) => setCity(e.target.value)}>
+                                {CITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-3">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Type <span className="text-red-500">*</span></label>
+                            <select className={fieldCls} value={type} onChange={(e) => setType(e.target.value)}>
+                                {TYPE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Age Group <span className="text-red-500">*</span></label>
+                            <select className={fieldCls} value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)}>
+                                {AGE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Expertise <span className="text-red-500">*</span></label>
+                            <select className={fieldCls} value={expertise} onChange={(e) => setExpertise(e.target.value)}>
+                                {EXPERTISE_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                            </select>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Date <span className="text-red-500">*</span></label>
+                            <input className={fieldCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-1.5">Total Spots <span className="text-red-500">*</span></label>
+                            <input className={fieldCls} type="number" min={event.spotsFilled || 1} value={spotsTotal} onChange={(e) => setSpotsTotal(e.target.value)} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">Event Image <span className="text-xs font-normal text-gray-400">(optional)</span></label>
+                        {imagePreview ? (
+                            <div className="relative rounded-lg overflow-hidden border border-gray-200">
+                                <img src={imagePreview} alt="Preview" className="w-full h-36 object-cover" />
+                                <button type="button" onClick={removeImage} className="absolute top-2 right-2 p-1 rounded-full bg-black/50 text-white hover:bg-black/70 transition">
+                                    <X className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        ) : (
+                            <button type="button" onClick={() => fileInputRef.current?.click()} className="w-full h-24 rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 hover:border-blue-400 hover:bg-blue-50/50 transition flex flex-col items-center justify-center gap-1 text-gray-400 hover:text-blue-500">
+                                <Plus className="w-5 h-5" />
+                                <span className="text-xs font-medium">Upload image (max 5 MB)</span>
+                            </button>
+                        )}
+                        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageFile} />
+                    </div>
+                </div>
+
+                <div className="px-6 py-4 border-t border-gray-100 flex justify-end gap-2">
+                    <button onClick={onClose} className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50 transition">Cancel</button>
+                    <button
+                        onClick={handleSubmit}
+                        disabled={isSubmitting}
+                        className="px-5 py-2 rounded-lg text-white text-sm font-bold transition hover:opacity-90 disabled:opacity-50"
+                        style={{ background: "linear-gradient(135deg, #003366, #1d4ed8)" }}
+                    >
+                        {isSubmitting ? "Saving…" : "Save Changes"}
                     </button>
                 </div>
             </div>
@@ -417,6 +739,7 @@ export default function AdminPage() {
     const [eventSearch,       setEventSearch]       = useState("");
     const [expandedEvent,     setExpandedEvent]     = useState<number | null>(null);
     const [showCreateEvent,   setShowCreateEvent]   = useState(false);
+    const [editEvent,         setEditEvent]         = useState<AdminEvent | null>(null);
     const [confirmDeleteEvent, setConfirmDeleteEvent] = useState<number | null>(null);
 
     // Hours tab UI state
@@ -516,8 +839,8 @@ export default function AdminPage() {
         const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
         if (res.ok) {
             setEvents((prev) => prev.filter((e) => e.id !== id));
-            setConfirmDeleteEvent(null);
         }
+        setConfirmDeleteEvent(null);
     }, []);
 
     // ── Hours actions ─────────────────────────────────────────────────────────
@@ -530,8 +853,8 @@ export default function AdminPage() {
         const res = await fetch(`/api/volunteers/hours?id=${id}`, { method: "DELETE" });
         if (res.ok) {
             setHoursLogs((prev) => prev.filter((h) => h.id !== id));
-            setConfirmDeleteHours(null);
         }
+        setConfirmDeleteHours(null);
     }, []);
 
     // ── Filtered data ─────────────────────────────────────────────────────────
@@ -604,7 +927,7 @@ export default function AdminPage() {
                             onClick={() => navigate("/manager")}
                             className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/15 hover:bg-white/25 border border-white/30 text-white text-sm font-semibold transition shrink-0"
                         >
-                            Manage Administrators
+                            Manage Staff
                         </button>
                     )}
                 </div>
@@ -726,7 +1049,7 @@ export default function AdminPage() {
                                         <div className="border-t border-gray-100 px-6 py-5 bg-gray-50 grid grid-cols-1 sm:grid-cols-2 gap-5 text-sm">
                                             <div>
                                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Contact</p>
-                                                <p className="flex items-center gap-1.5 text-gray-700"><Phone className="w-3.5 h-3.5 text-gray-400" />{app.phone}</p>
+                                                <p className="flex items-center gap-1.5 text-gray-700"><Phone className="w-3.5 h-3.5 text-gray-400" />{formatPhone(app.phone)}</p>
                                             </div>
                                             <div>
                                                 <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Availability</p>
@@ -796,7 +1119,7 @@ export default function AdminPage() {
                                             </div>
                                         </div>
                                         <div className="text-xs text-gray-500 flex flex-col gap-1">
-                                            <span className="flex items-center gap-1.5"><Phone className="w-3 h-3" />{vol.phone}</span>
+                                            <span className="flex items-center gap-1.5"><Phone className="w-3 h-3" />{formatPhone(vol.phone)}</span>
                                             <span className="flex items-center gap-1.5"><MapPin className="w-3 h-3" />{vol.city}</span>
                                             <span className="flex items-center gap-1.5"><Star className="w-3 h-3" />{vol.skills}</span>
                                         </div>
@@ -867,7 +1190,9 @@ export default function AdminPage() {
                                                             {ev.venue}, {displayEnum(ev.city)}
                                                         </span>
                                                     </div>
-                                                    <p className="text-sm text-gray-600 mt-2 line-clamp-2">{ev.description}</p>
+                                                    <div className="mt-2">
+                                                        <ExpandableText text={ev.description} clampClass="line-clamp-2" />
+                                                    </div>
                                                     <div className="mt-3 w-full bg-gray-100 rounded-full h-1.5">
                                                         <div
                                                             className={`h-1.5 rounded-full transition-all ${pct >= 100 ? "bg-green-500" : "bg-blue-500"}`}
@@ -876,6 +1201,13 @@ export default function AdminPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2 shrink-0">
+                                                    <button
+                                                        onClick={() => setEditEvent(ev)}
+                                                        className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition"
+                                                        title="Edit event"
+                                                    >
+                                                        <Pencil className="w-4 h-4" />
+                                                    </button>
                                                     <button
                                                         onClick={() => setExpandedEvent(isExpanded ? null : ev.id)}
                                                         className="p-1.5 rounded-lg text-gray-400 hover:bg-gray-100 transition"
@@ -1004,7 +1336,13 @@ export default function AdminPage() {
                                                 <td className="px-5 py-3.5">
                                                     <span className="font-bold text-[#003366]">{h.hours}h</span>
                                                 </td>
-                                                <td className="px-5 py-3.5 text-gray-500 italic text-xs">{h.note ?? "—"}</td>
+                                                <td className="px-5 py-3.5 max-w-[200px]">
+                                                    {h.note ? (
+                                                        <ExpandableText text={h.note} clampClass="line-clamp-1" />
+                                                    ) : (
+                                                        <span className="text-gray-400 italic text-xs">—</span>
+                                                    )}
+                                                </td>
                                                 <td className="px-5 py-3.5 text-gray-500 text-xs">
                                                     {new Date(h.loggedAt).toLocaleDateString()}
                                                 </td>
@@ -1040,6 +1378,13 @@ export default function AdminPage() {
                 <CreateEventModal
                     onClose={() => setShowCreateEvent(false)}
                     onCreate={handleCreateEvent}
+                />
+            )}
+            {editEvent && (
+                <EditEventModal
+                    event={editEvent}
+                    onClose={() => setEditEvent(null)}
+                    onUpdate={(updated) => setEvents((prev) => prev.map((e) => e.id === updated.id ? updated : e))}
                 />
             )}
             {showAddHours && (
