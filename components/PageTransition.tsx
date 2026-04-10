@@ -9,44 +9,28 @@ export default function PageTransition({ children }: { children: ReactNode }) {
     const ref = useRef<HTMLDivElement>(null);
     const fadeRef = useContext(FadeRefContext);
     const isFirstRender = useRef(true);
-    const fallbackTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const prevPathname = useRef(pathname);
 
-    // Register the fade-out function so NavigationProvider can call it on navigation
     useEffect(() => {
         fadeRef.current = () => {
             const el = ref.current;
             if (!el) return;
             el.style.transition = `opacity ${FADE_MS}ms ease`;
             el.style.opacity = "0";
-
-            // Fallback: if pathname never changes (e.g. middleware redirects back
-            // to the same page), fade the content back in so the screen isn't blank.
-            if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
-            fallbackTimer.current = setTimeout(() => {
-                if (el && el.style.opacity === "0") {
-                    el.style.transition = `opacity ${FADE_MS}ms ease`;
-                    el.style.opacity = "1";
-                }
-            }, FADE_MS + 500);
         };
-        return () => {
-            fadeRef.current = null;
-            if (fallbackTimer.current) clearTimeout(fallbackTimer.current);
-        };
+        return () => { fadeRef.current = null; };
     }, [fadeRef]);
 
-    // Fade in once the new route's content is ready
     useEffect(() => {
-        // Clear the fallback, the pathname changed so normal fade-in takes over
-        if (fallbackTimer.current) {
-            clearTimeout(fallbackTimer.current);
-            fallbackTimer.current = null;
-        }
-
         if (isFirstRender.current) {
             isFirstRender.current = false;
+            prevPathname.current = pathname;
             return;
         }
+
+        if (prevPathname.current === pathname) return;
+        prevPathname.current = pathname;
+
         const el = ref.current;
         if (!el) return;
         el.style.transition = "none";

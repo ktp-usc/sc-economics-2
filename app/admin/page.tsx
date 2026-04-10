@@ -12,6 +12,7 @@ import { useNavigate } from "@/context/navigation";
 
 type AppStatus = "pending" | "approved" | "denied";
 type Tab = "applications" | "volunteers" | "events" | "hours";
+type StaffRole = "admin" | "manager";
 
 interface Application {
     id: number;
@@ -106,9 +107,9 @@ function displayEnum(val: string) {
 // ─── CREATE EVENT MODAL ───────────────────────────────────────────────────────
 
 function CreateEventModal({
-    onClose,
-    onCreate,
-}: {
+                              onClose,
+                              onCreate,
+                          }: {
     onClose: () => void;
     onCreate: (event: AdminEvent) => void;
 }) {
@@ -270,11 +271,11 @@ function CreateEventModal({
 // ─── ADD HOURS MODAL ──────────────────────────────────────────────────────────
 
 function AddHoursModal({
-    volunteers,
-    events,
-    onAdd,
-    onClose,
-}: {
+                           volunteers,
+                           events,
+                           onAdd,
+                           onClose,
+                       }: {
     volunteers: { id: number; name: string; email: string }[];
     events: AdminEvent[];
     onAdd: (log: HoursLog) => void;
@@ -398,6 +399,7 @@ export default function AdminPage() {
     const navigate = useNavigate();
 
     const [isReady,      setIsReady]      = useState(false);
+    const [userRole,     setUserRole]     = useState<StaffRole>("manager");
     const [activeTab,    setActiveTab]    = useState<Tab>("applications");
     const [applications, setApplications] = useState<Application[]>([]);
     const [events,       setEvents]       = useState<AdminEvent[]>([]);
@@ -429,7 +431,8 @@ export default function AdminPage() {
             const meRes = await fetch("/api/me");
             if (!meRes.ok) { navigate("/login"); return; }
             const me = await meRes.json();
-            if (me.role !== "admin") { navigate("/login"); return; }
+            if (me.role !== "admin" && me.role !== "manager") { navigate("/login"); return; }
+            setUserRole(me.role as StaffRole);
 
             const [appsRes, eventsRes, hoursRes] = await Promise.all([
                 fetch("/api/applications"),
@@ -589,9 +592,21 @@ export default function AdminPage() {
 
             {/* Header banner */}
             <div className="text-white py-8 px-4" style={{ background: "linear-gradient(135deg, #003366 0%, #1d4ed8 100%)" }}>
-                <div className="max-w-6xl mx-auto">
-                    <h1 className="text-3xl font-bold mb-1">Admin Dashboard</h1>
-                    <p className="text-blue-200">Manage applications, volunteers, events, and hours</p>
+                <div className="max-w-6xl mx-auto flex items-start justify-between gap-4 flex-wrap">
+                    <div>
+                        <h1 className="text-3xl font-bold mb-1">
+                            {userRole === "admin" ? "Admin Dashboard" : "Manager Dashboard"}
+                        </h1>
+                        <p className="text-blue-200">Manage applications, volunteers, events, and hours</p>
+                    </div>
+                    {userRole === "admin" && (
+                        <button
+                            onClick={() => navigate("/manager")}
+                            className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white/15 hover:bg-white/25 border border-white/30 text-white text-sm font-semibold transition shrink-0"
+                        >
+                            Manage Administrators
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -965,53 +980,53 @@ export default function AdminPage() {
                             ) : (
                                 <table className="w-full text-sm">
                                     <thead>
-                                        <tr className="border-b border-gray-100 bg-gray-50 text-xs text-gray-500 font-semibold uppercase tracking-wider">
-                                            <th className="px-5 py-3 text-left">Volunteer</th>
-                                            <th className="px-5 py-3 text-left">Event</th>
-                                            <th className="px-5 py-3 text-left">Hours</th>
-                                            <th className="px-5 py-3 text-left">Note</th>
-                                            <th className="px-5 py-3 text-left">Date</th>
-                                            <th className="px-5 py-3" />
-                                        </tr>
+                                    <tr className="border-b border-gray-100 bg-gray-50 text-xs text-gray-500 font-semibold uppercase tracking-wider">
+                                        <th className="px-5 py-3 text-left">Volunteer</th>
+                                        <th className="px-5 py-3 text-left">Event</th>
+                                        <th className="px-5 py-3 text-left">Hours</th>
+                                        <th className="px-5 py-3 text-left">Note</th>
+                                        <th className="px-5 py-3 text-left">Date</th>
+                                        <th className="px-5 py-3" />
+                                    </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-50">
-                                        {filteredHours.map((h) => {
-                                            const name = emailToName[h.userEmail] ?? h.userEmail;
-                                            return (
-                                                <tr key={h.id} className="hover:bg-gray-50 transition-colors">
-                                                    <td className="px-5 py-3.5">
-                                                        <div className="font-medium text-gray-900">{name}</div>
-                                                        <div className="text-xs text-gray-400">{h.userEmail}</div>
-                                                    </td>
-                                                    <td className="px-5 py-3.5 text-gray-700 max-w-[200px] truncate">
-                                                        {h.event?.title ?? `Event #${h.eventId}`}
-                                                    </td>
-                                                    <td className="px-5 py-3.5">
-                                                        <span className="font-bold text-[#003366]">{h.hours}h</span>
-                                                    </td>
-                                                    <td className="px-5 py-3.5 text-gray-500 italic text-xs">{h.note ?? "—"}</td>
-                                                    <td className="px-5 py-3.5 text-gray-500 text-xs">
-                                                        {new Date(h.loggedAt).toLocaleDateString()}
-                                                    </td>
-                                                    <td className="px-5 py-3.5 text-right">
-                                                        {confirmDeleteHours === h.id ? (
-                                                            <div className="flex items-center justify-end gap-2">
-                                                                <span className="text-xs text-gray-500">Delete?</span>
-                                                                <button onClick={() => handleDeleteHours(h.id)} className="text-xs text-red-600 font-bold hover:text-red-800 transition">Yes</button>
-                                                                <button onClick={() => setConfirmDeleteHours(null)} className="text-xs text-gray-500 hover:text-gray-700 transition">No</button>
-                                                            </div>
-                                                        ) : (
-                                                            <button
-                                                                onClick={() => setConfirmDeleteHours(h.id)}
-                                                                className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
-                                                            >
-                                                                <Trash2 className="w-3.5 h-3.5" />
-                                                            </button>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            );
-                                        })}
+                                    {filteredHours.map((h) => {
+                                        const name = emailToName[h.userEmail] ?? h.userEmail;
+                                        return (
+                                            <tr key={h.id} className="hover:bg-gray-50 transition-colors">
+                                                <td className="px-5 py-3.5">
+                                                    <div className="font-medium text-gray-900">{name}</div>
+                                                    <div className="text-xs text-gray-400">{h.userEmail}</div>
+                                                </td>
+                                                <td className="px-5 py-3.5 text-gray-700 max-w-[200px] truncate">
+                                                    {h.event?.title ?? `Event #${h.eventId}`}
+                                                </td>
+                                                <td className="px-5 py-3.5">
+                                                    <span className="font-bold text-[#003366]">{h.hours}h</span>
+                                                </td>
+                                                <td className="px-5 py-3.5 text-gray-500 italic text-xs">{h.note ?? "—"}</td>
+                                                <td className="px-5 py-3.5 text-gray-500 text-xs">
+                                                    {new Date(h.loggedAt).toLocaleDateString()}
+                                                </td>
+                                                <td className="px-5 py-3.5 text-right">
+                                                    {confirmDeleteHours === h.id ? (
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <span className="text-xs text-gray-500">Delete?</span>
+                                                            <button onClick={() => handleDeleteHours(h.id)} className="text-xs text-red-600 font-bold hover:text-red-800 transition">Yes</button>
+                                                            <button onClick={() => setConfirmDeleteHours(null)} className="text-xs text-gray-500 hover:text-gray-700 transition">No</button>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setConfirmDeleteHours(h.id)}
+                                                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-500 hover:bg-red-50 transition"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                        </button>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                     </tbody>
                                 </table>
                             )}

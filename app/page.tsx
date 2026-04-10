@@ -62,7 +62,7 @@ export default function VolunteerPage() {
                         </h1>
                         <p className="text-blue-100 text-lg leading-relaxed mb-8 max-w-xl">
                             SC Economics gives South Carolina&apos;s K-12 students the economic and financial
-                            literacy skills to thrive — and it&apos;s powered by volunteers like you.
+                            literacy skills to thrive, and it&apos;s powered by volunteers like you.
                         </p>
                         <div className="flex flex-wrap gap-3">
                             {/* FIX #5 — navigate to /login if unauthenticated, /volunteer if authenticated */}
@@ -92,7 +92,7 @@ export default function VolunteerPage() {
                     <div className="text-center mb-4">
                         <h2 className="text-3xl font-extrabold text-[#1e3a5f] mb-3">Why Your Time Matters</h2>
                         <p className="text-gray-500 text-lg max-w-2xl mx-auto">
-                            Here&apos;s what SC Economics accomplished in the 2024–25 school year — made
+                            Here&apos;s what SC Economics accomplished in the 2024–25 school year made
                             possible by the support of volunteers and donors across South Carolina.
                         </p>
                     </div>
@@ -116,7 +116,7 @@ export default function VolunteerPage() {
                             <strong className="text-blue-200">1,030 unique teachers</strong>, ran{" "}
                             <strong className="text-blue-200">143 educator events</strong>, and reached{" "}
                             <strong className="text-blue-200">11,348 students</strong> through student
-                            contests — across 65 of South Carolina&apos;s 72 public school districts.
+                            contests across 65 of South Carolina&apos;s 72 public school districts.
                         </p>
                         <p className="text-blue-300 text-sm mt-4 font-medium">
                             — SC Economics 2024–2025 Annual Report
