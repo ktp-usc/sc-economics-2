@@ -5,7 +5,7 @@ import { getAuthenticatedAdmin } from "@/lib/auth";
 /**
  * DELETE /api/admins/[id]
  * Admin only — removes admin privileges (deletes Prisma User record).
- * The Neon Auth account remains; the user simply loses admin access.
+ * Managers receive 403. The Neon Auth account remains; the user simply loses admin access.
  */
 export async function DELETE(
     _req: NextRequest,
@@ -13,7 +13,7 @@ export async function DELETE(
 ) {
     const admin = await getAuthenticatedAdmin();
     if (!admin) {
-        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { id } = await params;
