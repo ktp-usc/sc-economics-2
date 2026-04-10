@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { MapPin, Calendar, Users, X, CheckCircle } from "lucide-react";
+import { MapPin, Calendar, Users, X, CheckCircle, AlertCircle } from "lucide-react";
 import {
     VolunteerEvent, EventType, AgeGroup, Expertise, City, EXPERTISE_THEME, formatDate,
 } from "@/lib/types";
@@ -80,6 +80,11 @@ const EXPERTISES: (Expertise | "All")[] = ["All", "Finance", "Teaching", "Techno
 const selectCls =
     "px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 cursor-pointer transition";
 
+function isExpired(dateStr: string) {
+    const today = new Date().toISOString().split("T")[0];
+    return dateStr < today;
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────
 
 export default function EventsPage() {
@@ -90,11 +95,24 @@ export default function EventsPage() {
     const [filters, setFilters]         = useState<Filters>(INITIAL_FILTERS);
     const [signUpEvent, setSignUpEvent] = useState<VolunteerEvent | null>(null);
     const [justConfirmed, setJustConfirmed] = useState(false);
+    const [signUpError, setSignUpError] = useState<string | null>(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Sign-up form fields
+    const [why, setWhy]             = useState("");
+    const [fromTime, setFromTime]   = useState("");
+    const [toTime, setToTime]       = useState("");
+    const [certificate, setCertificate] = useState(false);
 
     useEffect(() => {
-        fetch("/api/events")
-            .then((r) => r.ok ? r.json() : [])
-            .then((raw: Record<string, unknown>[]) => setEvents(raw.map(normalizeEvent)))
+        Promise.all([
+            fetch("/api/events").then((r) => r.ok ? r.json() : []),
+            fetch("/api/me/signups").then((r) => r.ok ? r.json() : []),
+        ])
+            .then(([rawEvents, signups]: [Record<string, unknown>[], { eventId: number }[]]) => {
+                setEvents(rawEvents.map(normalizeEvent));
+                setSignedUpIds(signups.map((s) => s.eventId));
+            })
             .catch(() => setEvents([]))
             .finally(() => setIsLoading(false));
     }, []);
@@ -104,21 +122,81 @@ export default function EventsPage() {
 
     const isFiltered = Object.values(filters).some((v) => v !== "All");
 
-    const filtered = useMemo(() => events.filter((e) =>
-        (filters.city      === "All" || e.city      === filters.city) &&
-        (filters.type      === "All" || e.type      === filters.type) &&
-        (filters.ageGroup  === "All" || e.ageGroup  === filters.ageGroup) &&
-        (filters.expertise === "All" || e.expertise === filters.expertise)
-    ), [events, filters]);
+    const filtered = useMemo(() => {
+        const matched = events.filter((e) =>
+            (filters.city      === "All" || e.city      === filters.city) &&
+            (filters.type      === "All" || e.type      === filters.type) &&
+            (filters.ageGroup  === "All" || e.ageGroup  === filters.ageGroup) &&
+            (filters.expertise === "All" || e.expertise === filters.expertise)
+        );
+        // Upcoming events first (sorted by date asc), then expired events at the bottom
+        return matched.sort((a, b) => {
+            const aExp = isExpired(a.date);
+            const bExp = isExpired(b.date);
+            if (aExp !== bExp) return aExp ? 1 : -1;
+            return a.date.localeCompare(b.date);
+        });
+    }, [events, filters]);
 
-    const openCount = events.filter((e) => e.spotsFilled < e.spotsTotal).length;
-    const spotsLeft = events.reduce((sum, e) => sum + Math.max(0, e.spotsTotal - e.spotsFilled), 0);
+    const openCount = events.filter((e) => e.spotsFilled < e.spotsTotal && !isExpired(e.date)).length;
+    const spotsLeft = events.reduce((sum, e) => isExpired(e.date) ? sum : sum + Math.max(0, e.spotsTotal - e.spotsFilled), 0);
 
-    function handleConfirm(event: VolunteerEvent) {
-        setSignedUpIds((prev) => [...prev, event.id]);
-        setSignUpEvent(null);
-        setJustConfirmed(true);
-        setTimeout(() => setJustConfirmed(false), 4000);
+    function resetSignUpForm() {
+        setWhy("");
+        setFromTime("");
+        setToTime("");
+        setCertificate(false);
+        setSignUpError(null);
+    }
+
+    function openSignUpModal(event: VolunteerEvent) {
+        resetSignUpForm();
+        setSignUpEvent(event);
+    }
+
+    async function handleConfirm(event: VolunteerEvent) {
+        if (!why.trim() || !fromTime || !toTime) {
+            setSignUpError("Please fill in all required fields.");
+            return;
+        }
+        setIsSubmitting(true);
+        setSignUpError(null);
+        try {
+            const res = await fetch(`/api/events/${event.id}/signup`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ why: why.trim(), fromTime, toTime, certificate }),
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                setSignUpError(data.error ?? "Failed to sign up.");
+                return;
+            }
+            setSignedUpIds((prev) => [...prev, event.id]);
+            setEvents((prev) => prev.map((e) =>
+                e.id === event.id ? { ...e, spotsFilled: e.spotsFilled + 1 } : e
+            ));
+            setSignUpEvent(null);
+            setJustConfirmed(true);
+            setTimeout(() => setJustConfirmed(false), 4000);
+        } catch {
+            setSignUpError("Failed to sign up. Please try again.");
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
+    async function handleWithdraw(eventId: number) {
+        try {
+            const res = await fetch(`/api/events/${eventId}/signup`, { method: "DELETE" });
+            if (!res.ok) return;
+            setSignedUpIds((prev) => prev.filter((id) => id !== eventId));
+            setEvents((prev) => prev.map((e) =>
+                e.id === eventId ? { ...e, spotsFilled: Math.max(0, e.spotsFilled - 1) } : e
+            ));
+        } catch {
+            // silently fail
+        }
     }
 
     if (isLoading) {
@@ -134,6 +212,8 @@ export default function EventsPage() {
             </div>
         );
     }
+
+    const fieldCls = "w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-50 text-gray-900 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition";
 
     return (
         <div className="min-h-[calc(100vh-70px)] bg-gray-50">
@@ -267,6 +347,7 @@ export default function EventsPage() {
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                 {filtered.map((event) => {
+                                    const expired    = isExpired(event.date);
                                     const isFull     = event.spotsFilled >= event.spotsTotal;
                                     const isSignedUp = signedUpIds.includes(event.id);
                                     const remaining  = event.spotsTotal - event.spotsFilled;
@@ -274,23 +355,27 @@ export default function EventsPage() {
                                     return (
                                         <div
                                             key={event.id}
-                                            className="bg-white rounded-xl shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow"
+                                            className={`bg-white rounded-xl shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow ${expired ? "opacity-60" : ""}`}
                                         >
                                             {/* Photo area */}
                                             <div className={`bg-gradient-to-br ${event.gradient} h-40 flex items-center justify-center relative shrink-0`}>
                                                 <span className="text-6xl select-none">{event.emoji}</span>
                                                 <div className={`absolute top-3 right-3 text-xs font-bold px-2.5 py-1 rounded-full ${
-                                                    isSignedUp
-                                                        ? "bg-white/90 text-green-700"
-                                                        : isFull
-                                                            ? "bg-black/30 text-white"
-                                                            : "bg-white/20 text-white"
+                                                    expired
+                                                        ? "bg-black/30 text-white"
+                                                        : isSignedUp
+                                                            ? "bg-white/90 text-green-700"
+                                                            : isFull
+                                                                ? "bg-black/30 text-white"
+                                                                : "bg-white/20 text-white"
                                                 }`}>
-                                                    {isSignedUp
-                                                        ? "✓ Signed Up"
-                                                        : isFull
-                                                            ? "Full"
-                                                            : `${remaining} spot${remaining !== 1 ? "s" : ""} left`}
+                                                    {expired
+                                                        ? "Expired"
+                                                        : isSignedUp
+                                                            ? "✓ Signed Up"
+                                                            : isFull
+                                                                ? "Full"
+                                                                : `${remaining} spot${remaining !== 1 ? "s" : ""} left`}
                                                 </div>
                                             </div>
 
@@ -331,20 +416,31 @@ export default function EventsPage() {
                                                     {event.description}
                                                 </p>
 
-                                                <button
-                                                    onClick={() => !isFull && !isSignedUp && setSignUpEvent(event)}
-                                                    disabled={isFull || isSignedUp}
-                                                    className={`w-full py-2.5 rounded-lg text-sm font-bold transition ${
-                                                        isSignedUp
-                                                            ? "bg-green-50 text-green-700 border border-green-200 cursor-default"
-                                                            : isFull
+                                                {expired ? (
+                                                    <div className="w-full py-2.5 rounded-lg text-sm font-bold text-center bg-gray-100 text-gray-400">
+                                                        Event Passed
+                                                    </div>
+                                                ) : isSignedUp ? (
+                                                    <button
+                                                        onClick={() => handleWithdraw(event.id)}
+                                                        className="w-full py-2.5 rounded-lg text-sm font-bold transition bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+                                                    >
+                                                        Withdraw
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => !isFull && openSignUpModal(event)}
+                                                        disabled={isFull}
+                                                        className={`w-full py-2.5 rounded-lg text-sm font-bold transition ${
+                                                            isFull
                                                                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                                                                 : "text-white hover:opacity-90"
-                                                    }`}
-                                                    style={!isFull && !isSignedUp ? { backgroundColor: "#003366" } : undefined}
-                                                >
-                                                    {isSignedUp ? "✓ Signed Up" : isFull ? "Event Full" : "Sign Up"}
-                                                </button>
+                                                        }`}
+                                                        style={!isFull ? { backgroundColor: "#003366" } : undefined}
+                                                    >
+                                                        {isFull ? "Event Full" : "Sign Up"}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     );
@@ -399,7 +495,32 @@ export default function EventsPage() {
                                 </span>
                             </div>
 
-                            <p className="text-sm text-gray-500 leading-relaxed mb-7">{signUpEvent.description}</p>
+                            {signUpError && (
+                                <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-red-600 text-sm flex items-center gap-2">
+                                    <AlertCircle className="w-4 h-4 shrink-0" /> {signUpError}
+                                </div>
+                            )}
+
+                            <div className="flex flex-col gap-4 mb-6">
+                                <div>
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1.5">Why do you want to volunteer? <span className="text-red-500">*</span></label>
+                                    <textarea className={fieldCls + " resize-none"} rows={2} value={why} onChange={(e) => setWhy(e.target.value)} placeholder="Tell us why you'd like to help at this event…" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">From <span className="text-red-500">*</span></label>
+                                        <input className={fieldCls} type="time" value={fromTime} onChange={(e) => setFromTime(e.target.value)} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">To <span className="text-red-500">*</span></label>
+                                        <input className={fieldCls} type="time" value={toTime} onChange={(e) => setToTime(e.target.value)} />
+                                    </div>
+                                </div>
+                                <label className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-700">
+                                    <input type="checkbox" checked={certificate} onChange={(e) => setCertificate(e.target.checked)} className="w-4 h-4 accent-[#003366]" />
+                                    I would like a volunteer certificate
+                                </label>
+                            </div>
 
                             <div className="flex gap-3">
                                 <button
@@ -410,10 +531,11 @@ export default function EventsPage() {
                                 </button>
                                 <button
                                     onClick={() => handleConfirm(signUpEvent)}
-                                    className="flex-1 py-2.5 rounded-lg text-sm font-bold text-white hover:opacity-90 transition"
+                                    disabled={isSubmitting}
+                                    className="flex-1 py-2.5 rounded-lg text-sm font-bold text-white hover:opacity-90 transition disabled:opacity-50"
                                     style={{ backgroundColor: "#003366" }}
                                 >
-                                    Confirm Sign Up
+                                    {isSubmitting ? "Signing up…" : "Confirm Sign Up"}
                                 </button>
                             </div>
                         </div>
