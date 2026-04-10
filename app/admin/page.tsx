@@ -133,6 +133,15 @@ function CreateEventModal({
             setError("All fields are required.");
             return;
         }
+        if (venue.trim().length < 3) {
+            setError("Venue must be at least 3 characters.");
+            return;
+        }
+        const today = new Date().toISOString().split("T")[0];
+        if (date < today) {
+            setError("Event date cannot be in the past.");
+            return;
+        }
         const spots = parseInt(spotsTotal, 10);
         if (isNaN(spots) || spots < 1) {
             setError("Total spots must be a positive number.");
@@ -234,7 +243,7 @@ function CreateEventModal({
                     <div className="grid grid-cols-2 gap-3">
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Date <span className="text-red-500">*</span></label>
-                            <input className={fieldCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+                            <input className={fieldCls} type="date" value={date} onChange={(e) => setDate(e.target.value)} min={new Date().toISOString().split("T")[0]} />
                         </div>
                         <div>
                             <label className="block text-sm font-semibold text-gray-700 mb-1.5">Total Spots <span className="text-red-500">*</span></label>
@@ -343,7 +352,7 @@ function AddHoursModal({
                         <select className={selectCls} value={volunteerEmail} onChange={(e) => setVolunteerEmail(e.target.value)}>
                             <option value="">Select a volunteer…</option>
                             {volunteers.map((v) => (
-                                <option key={v.email} value={v.email}>{v.name} — {v.email}</option>
+                                <option key={v.email} value={v.email}>{v.name}</option>
                             ))}
                         </select>
                     </div>
@@ -438,7 +447,15 @@ export default function AdminPage() {
             ]);
 
             setApplications(apps);
-            setEvents(evts);
+            // Upcoming events first (by date asc), expired events at the bottom
+            const today = new Date().toISOString().split("T")[0];
+            const sorted = [...evts].sort((a: AdminEvent, b: AdminEvent) => {
+                const aExp = a.date.slice(0, 10) < today;
+                const bExp = b.date.slice(0, 10) < today;
+                if (aExp !== bExp) return aExp ? 1 : -1;
+                return a.date.localeCompare(b.date);
+            });
+            setEvents(sorted);
             setHoursLogs(hours);
             setIsReady(true);
         }
@@ -483,7 +500,16 @@ export default function AdminPage() {
     // ── Event actions ─────────────────────────────────────────────────────────
 
     const handleCreateEvent = useCallback((event: AdminEvent) => {
-        setEvents((prev) => [event, ...prev]);
+        setEvents((prev) => {
+            const next = [...prev, event];
+            const today = new Date().toISOString().split("T")[0];
+            return next.sort((a, b) => {
+                const aExp = a.date.slice(0, 10) < today;
+                const bExp = b.date.slice(0, 10) < today;
+                if (aExp !== bExp) return aExp ? 1 : -1;
+                return a.date.localeCompare(b.date);
+            });
+        });
     }, []);
 
     const handleDeleteEvent = useCallback(async (id: number) => {

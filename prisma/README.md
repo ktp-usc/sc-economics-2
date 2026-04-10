@@ -22,7 +22,7 @@ npm run db:unseed
 
 | Table | Records | Details |
 |-------|---------|---------|
-| User | 3 | 1 admin, 2 volunteers |
+| User | 4 | 1 admin, 1 manager, 2 volunteers |
 | Event | 6 | 3 past, 3 upcoming (all cities, types, and age groups) |
 | EventSignup | 3 | Volunteers signed up for past events |
 | VolunteerHours | 3 | Hours logged for past events (3h, 4h, 8h) |
@@ -34,15 +34,16 @@ Running the seed multiple times is safe. Each run deletes previous seed data and
 
 ### Neon Auth accounts
 
-The seed script only creates Prisma User records (for role assignment). Neon Auth accounts must be created separately since they require the Next.js runtime. Start the dev server, then run:
+The seed script automatically creates Neon Auth sign-in accounts for all seed users (requires `NEON_AUTH_BASE_URL` in `.env`). All accounts share the password `Password123!`.
 
-```bash
-curl -X POST http://localhost:3000/api/auth/sign-up/email \
-  -H "Content-Type: application/json" \
-  -d '{"email":"admin@scecon.dev","password":"Password123!","name":"Admin User"}'
-```
+| Email | Role |
+|-------|------|
+| `admin@scecon.dev` | admin |
+| `manager@scecon.dev` | manager |
+| `volunteer1@scecon.dev` | volunteer |
+| `volunteer2@scecon.dev` | volunteer |
 
-Repeat for each seed user (`volunteer1@scecon.dev`, `volunteer2@scecon.dev`).
+If the auth account already exists from a prior seed run, the script skips it gracefully.
 
 
 ## Shared database safety
@@ -69,7 +70,7 @@ curl -X POST http://localhost:3000/api/auth/sign-up/email \
 npx prisma studio
 ```
 
-In Prisma Studio, open the `User` table, click **Insert Row**, fill in the email (must match the auth account), and set the role (`admin` or `volunteer`).
+In Prisma Studio, open the `User` table, click **Insert Row**, fill in the email (must match the auth account), and set the role (`admin`, `manager`, or `volunteer`).
 
 Alternatively, use raw SQL:
 

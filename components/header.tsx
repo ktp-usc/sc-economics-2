@@ -1,24 +1,36 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { useNavigate } from "@/context/navigation";
 import { authClient } from "@/lib/auth/client";
 import { LogOut } from "lucide-react";
 import Image from "next/image";
+
 type NavItem = {
     label: string;
     href: string;
     activePath: string;
 };
 
-const VOLUNTEER_NAV: NavItem[] = [
+const VOLUNTEER_NAV_APPLY: NavItem[] = [
     { label: "Home",             href: "/",          activePath: "/" },
     { label: "Apply",            href: "/volunteer", activePath: "/volunteer" },
     { label: "Events",           href: "/events",    activePath: "/events" },
     { label: "Volunteer Portal", href: "/portal",    activePath: "/portal" },
 ];
 
-const ADMIN_EXTRA: NavItem = { label: "Admin", href: "/admin", activePath: "/admin" };
+const VOLUNTEER_NAV: NavItem[] = [
+    { label: "Home",             href: "/",       activePath: "/" },
+    { label: "Events",           href: "/events", activePath: "/events" },
+    { label: "Volunteer Portal", href: "/portal", activePath: "/portal" },
+];
+
+const STAFF_NAV: NavItem[] = [
+    { label: "Home",   href: "/",       activePath: "/" },
+    { label: "Events", href: "/events", activePath: "/events" },
+    { label: "Admin",  href: "/admin",  activePath: "/admin" },
+];
 
 const PUBLIC_NAV: NavItem[] = [
     { label: "Home",             href: "/",      activePath: "/" },
@@ -35,13 +47,31 @@ export default function Header() {
 
     const me = session?.user;
     const isLoggedIn = !!me;
-    const role = me && "role" in me ? (me as { role: string }).role : null;
-    const isStaff = role === "admin" || role === "manager";
 
+    // Fetch role and hasApplication from /api/me since the auth session doesn't include these
+    const [extraInfo, setExtraInfo] = useState<{ role: string; hasApplication: boolean } | null>(null);
+
+    useEffect(() => {
+        if (!isLoggedIn) {
+            setExtraInfo(null);
+            return;
+        }
+        fetch("/api/me")
+            .then((r) => r.ok ? r.json() : null)
+            .then((data) => {
+                if (data) setExtraInfo({ role: data.role, hasApplication: data.hasApplication });
+            })
+            .catch(() => setExtraInfo(null));
+    }, [isLoggedIn, pathname]);
+
+    const role = extraInfo?.role ?? null;
+    const isStaff = role === "admin" || role === "manager";
+    const hasApplied = extraInfo?.hasApplication ?? false;
+    const volunteerNav = hasApplied ? VOLUNTEER_NAV : VOLUNTEER_NAV_APPLY;
     const navItems = isLoggedIn
         ? isStaff
-            ? [...VOLUNTEER_NAV, ADMIN_EXTRA]
-            : VOLUNTEER_NAV
+            ? STAFF_NAV
+            : volunteerNav
         : PUBLIC_NAV;
 
     const handleSignOut = async () => {

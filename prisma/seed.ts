@@ -8,12 +8,9 @@
  * the identifiers in seed-identifiers.ts (specific emails, titles, and
  * placeholder UUIDs). It will never delete or overwrite real user data.
  *
- * Neon Auth accounts are NOT created here (they require the Next.js
- * runtime). Create them separately via:
- *
- *   curl -X POST http://localhost:3000/api/auth/sign-up/email \
- *     -H "Content-Type: application/json" \
- *     -d '{"email":"admin@scecon.dev","password":"Password123!","name":"Admin User"}'
+ * Neon Auth accounts are also created automatically (requires
+ * NEON_AUTH_BASE_URL in .env). All seed accounts share the password
+ * defined in seed-identifiers.ts (default: Password123!).
  */
 
 import "dotenv/config";
@@ -24,6 +21,8 @@ import {
     SEED_EVENT_TITLES,
     SEED_APPLICATION_EMAILS,
     SEED_AUTH_IDS,
+    SEED_PASSWORD,
+    SEED_ACCOUNTS,
 } from "./seed-identifiers";
 
 const adapter = new PrismaNeon({ connectionString: process.env.DATABASE_URL! });
@@ -84,10 +83,13 @@ async function seed() {
     });
     console.log("  Deleted previous seed data.");
 
-    // -- Users (Prisma records only, not Neon Auth accounts) --
+    // -- Users (Prisma records + Neon Auth accounts) --
     console.log("Seeding users...");
     const admin = await db.user.create({
         data: { email: "admin@scecon.dev", role: "admin" },
+    });
+    const mgr = await db.user.create({
+        data: { email: "manager@scecon.dev", role: "manager" },
     });
     const vol1 = await db.user.create({
         data: { email: "volunteer1@scecon.dev", role: "volunteer" },
@@ -96,8 +98,43 @@ async function seed() {
         data: { email: "volunteer2@scecon.dev", role: "volunteer" },
     });
     console.log(
-        `  Created 3 users: ${admin.email}, ${vol1.email}, ${vol2.email}`
+        `  Created 4 users: ${admin.email}, ${mgr.email}, ${vol1.email}, ${vol2.email}`
     );
+
+    // Create Neon Auth accounts so seed users can sign in.
+    const authBaseUrl = process.env.NEON_AUTH_BASE_URL;
+    if (authBaseUrl) {
+        console.log("Creating Neon Auth accounts...");
+        for (const { email, name } of SEED_ACCOUNTS) {
+            try {
+                const res = await fetch(`${authBaseUrl}/sign-up/email`, {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Origin": "http://localhost:3000",
+                    },
+                    body: JSON.stringify({ email, password: SEED_PASSWORD, name }),
+                });
+                if (res.ok) {
+                    console.log(`  ✓ ${email}`);
+                } else {
+                    const text = await res.text();
+                    // 422 / "user already exists" is fine — account was created in a prior run
+                    if (res.status === 422 || text.includes("already")) {
+                        console.log(`  ✓ ${email} (already exists)`);
+                    } else {
+                        console.warn(`  ✗ ${email}: ${res.status} ${text}`);
+                    }
+                }
+            } catch (err) {
+                console.warn(`  ✗ ${email}: ${err instanceof Error ? err.message : err}`);
+            }
+        }
+        console.log(`  Password for all seed accounts: ${SEED_PASSWORD}`);
+    } else {
+        console.warn("  NEON_AUTH_BASE_URL not set — skipping auth account creation.");
+        console.warn("  Create accounts manually (see README).");
+    }
 
     // -- Events (mix of past and upcoming across all enum values) --
     console.log("Seeding events...");
@@ -323,15 +360,6 @@ async function seed() {
 
     // -- Summary --
     console.log("\nSeed complete!");
-    console.log("\nNOTE: Neon Auth accounts are not created by this script.");
-    console.log("To create matching auth accounts, run the dev server and use:");
-    console.log(
-        "  curl -X POST http://localhost:3000/api/auth/sign-up/email \\"
-    );
-    console.log('    -H "Content-Type: application/json" \\');
-    console.log(
-        "    -d '{\"email\":\"admin@scecon.dev\",\"password\":\"Password123!\",\"name\":\"Admin User\"}'"
-    );
 }
 
 seed()

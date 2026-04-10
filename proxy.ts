@@ -44,28 +44,44 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
         return authResponse;
     }
 
-    // Step 2 — role gate for staff-only routes.
+    // Step 2 — role & application gates.
     const { pathname } = request.nextUrl;
-    if (matchesRoute(STAFF_ONLY_ROUTES, pathname)) {
+    const needsRoleCheck =
+        matchesRoute(STAFF_ONLY_ROUTES, pathname) ||
+        matchesRoute(["/volunteer"], pathname);
+
+    if (needsRoleCheck) {
         try {
             const meRes = await fetch(new URL("/api/me", request.url), {
                 headers: { cookie: request.headers.get("cookie") ?? "" },
             });
 
             if (!meRes.ok) {
-                // Session was valid per auth middleware but /api/me disagrees
-                // (e.g., token just expired between checks) → back to login.
                 return NextResponse.redirect(new URL("/login", request.url));
             }
 
-            const me = (await meRes.json()) as { role: string };
+            const me = (await meRes.json()) as {
+                role: string;
+                hasApplication: boolean;
+            };
 
-            if (me.role === "volunteer") {
+            // Users who already applied don't need the apply page.
+            if (
+                matchesRoute(["/volunteer"], pathname) &&
+                me.hasApplication
+            ) {
+                return NextResponse.redirect(new URL("/portal", request.url));
+            }
+
+            if (
+                matchesRoute(STAFF_ONLY_ROUTES, pathname) &&
+                me.role === "volunteer"
+            ) {
                 // Volunteers don't have staff access; send them to their portal.
                 return NextResponse.redirect(new URL("/portal", request.url));
             }
         } catch {
-            // If the role lookup fails (network error, bad JSON, etc.) let the
+            // If the lookup fails (network error, bad JSON, etc.) let the
             // request through — the page's own client-side guard will handle it.
         }
     }

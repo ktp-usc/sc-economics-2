@@ -10,6 +10,7 @@
 // Emails for seed User records (Prisma public schema)
 export const SEED_USER_EMAILS = [
     "admin@scecon.dev",
+    "manager@scecon.dev",
     "volunteer1@scecon.dev",
     "volunteer2@scecon.dev",
 ];
@@ -37,4 +38,16 @@ export const SEED_APPLICATION_EMAILS = [
 export const SEED_AUTH_IDS = {
     volunteer1: "00000000-0000-4000-a000-000000000001",
     volunteer2: "00000000-0000-4000-a000-000000000002",
+    manager:    "00000000-0000-4000-a000-000000000003",
 };
+
+// Default password for all seed Neon Auth accounts
+export const SEED_PASSWORD = "Password123!";
+
+// Seed accounts: email → display name (used to create Neon Auth accounts)
+export const SEED_ACCOUNTS = [
+    { email: "admin@scecon.dev",      name: "Admin User"    },
+    { email: "manager@scecon.dev",    name: "Manager User"  },
+    { email: "volunteer1@scecon.dev", name: "Volunteer One" },
+    { email: "volunteer2@scecon.dev", name: "Volunteer Two" },
+];
