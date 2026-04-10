@@ -84,8 +84,11 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
                 return NextResponse.redirect(new URL("/portal", request.url));
             }
         } catch {
-            // If the lookup fails (network error, bad JSON, etc.) let the
-            // request through — the page's own client-side guard will handle it.
+            // If the role lookup fails on a staff-only route, deny access
+            // rather than risking a volunteer reaching /admin or /manager.
+            if (matchesRoute(STAFF_ONLY_ROUTES, pathname)) {
+                return NextResponse.redirect(new URL("/portal", request.url));
+            }
         }
     }
 
