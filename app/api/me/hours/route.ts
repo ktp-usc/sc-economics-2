@@ -16,11 +16,11 @@ export async function GET() {
     return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
-  // Neon Auth user ID is stored as a string in VolunteerHours.userId
-  const userId = (session.user as { id?: string }).id ?? "";
+  // Query by email since that's the reliable identifier stored by admins
+  const userEmail = (session.user as { email?: string }).email ?? "";
 
   const hours = await db.volunteerHours.findMany({
-    where: { userId },
+    where: { userEmail },
     include: {
       event: { select: { id: true, title: true, date: true, venue: true, city: true } },
     },

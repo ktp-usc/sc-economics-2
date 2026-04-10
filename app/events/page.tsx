@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
-import { MapPin, Calendar, Users, X, CheckCircle, AlertCircle } from "lucide-react";
+import { useEffect, useState, useMemo, useRef, useCallback } from "react";
+import { MapPin, Calendar, Users, X, CheckCircle, AlertCircle, Info, Loader2 } from "lucide-react";
 import {
     VolunteerEvent, EventType, AgeGroup, Expertise, City, EXPERTISE_THEME, formatDate,
 } from "@/lib/types";
@@ -38,6 +38,7 @@ function normalizeEvent(raw: Record<string, unknown>): VolunteerEvent {
         ageGroup,
         city,
         date,
+        imageUrl:    (raw.imageUrl as string | null) ?? undefined,
         ...EXPERTISE_THEME[expertise],
     };
 }
@@ -80,9 +81,52 @@ const EXPERTISES: (Expertise | "All")[] = ["All", "Finance", "Teaching", "Techno
 const selectCls =
     "px-3 py-2 rounded-lg border border-gray-200 bg-white text-sm text-gray-700 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 cursor-pointer transition";
 
+const PAGE_SIZE = 9;
+
 function isExpired(dateStr: string) {
     const today = new Date().toISOString().split("T")[0];
     return dateStr < today;
+}
+
+/** Renders title + description with line clamping; shows "Read more" only when text is actually truncated. */
+function EventCardText({ title, description }: { title: string; description: string }) {
+    const [expanded, setExpanded] = useState(false);
+    const [isClamped, setIsClamped] = useState(false);
+    const titleRef  = useRef<HTMLHeadingElement>(null);
+    const descRef   = useRef<HTMLParagraphElement>(null);
+
+    useEffect(() => {
+        const t = titleRef.current;
+        const d = descRef.current;
+        const titleOverflow = t ? t.scrollHeight > t.clientHeight : false;
+        const descOverflow  = d ? d.scrollHeight > d.clientHeight : false;
+        setIsClamped(titleOverflow || descOverflow);
+    }, [title, description]);
+
+    return (
+        <>
+            <h3
+                ref={titleRef}
+                className={`text-base font-bold text-[#1e3a5f] mb-3 leading-snug ${!expanded ? "line-clamp-1" : ""}`}
+            >
+                {title}
+            </h3>
+            <p
+                ref={descRef}
+                className={`text-sm text-gray-600 leading-relaxed flex-1 whitespace-pre-line ${!expanded ? "line-clamp-3" : ""} ${isClamped ? "mb-2" : "mb-5"}`}
+            >
+                {description}
+            </p>
+            {isClamped && (
+                <button
+                    onClick={() => setExpanded((prev) => !prev)}
+                    className="text-xs text-blue-600 hover:text-blue-800 font-semibold mb-5 self-start transition"
+                >
+                    {expanded ? "Show less" : "Read more"}
+                </button>
+            )}
+        </>
+    );
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────
@@ -91,34 +135,40 @@ export default function EventsPage() {
     const [events,      setEvents]      = useState<VolunteerEvent[]>([]);
     const [isLoading,   setIsLoading]   = useState(true);
     const [signedUpIds, setSignedUpIds] = useState<number[]>([]);
+    const [applicationStatus, setApplicationStatus] = useState<string | null>(null); // "pending" | "approved" | "denied" | null
+    const canSignUp = applicationStatus === "approved";
 
     const [filters, setFilters]         = useState<Filters>(INITIAL_FILTERS);
     const [signUpEvent, setSignUpEvent] = useState<VolunteerEvent | null>(null);
     const [justConfirmed, setJustConfirmed] = useState(false);
     const [signUpError, setSignUpError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [confirmWithdraw, setConfirmWithdraw] = useState<number | null>(null);
 
     // Sign-up form fields
     const [why, setWhy]             = useState("");
-    const [fromTime, setFromTime]   = useState("");
-    const [toTime, setToTime]       = useState("");
-    const [certificate, setCertificate] = useState(false);
 
     useEffect(() => {
         Promise.all([
             fetch("/api/events").then((r) => r.ok ? r.json() : []),
             fetch("/api/me/signups").then((r) => r.ok ? r.json() : []),
+            fetch("/api/me").then((r) => r.ok ? r.json() : null),
         ])
-            .then(([rawEvents, signups]: [Record<string, unknown>[], { eventId: number }[]]) => {
+            .then(([rawEvents, signups, me]: [Record<string, unknown>[], { eventId: number }[], { applicationStatus?: string } | null]) => {
                 setEvents(rawEvents.map(normalizeEvent));
                 setSignedUpIds(signups.map((s) => s.eventId));
+                setApplicationStatus(me?.applicationStatus ?? null);
             })
             .catch(() => setEvents([]))
             .finally(() => setIsLoading(false));
     }, []);
 
-    const set = <K extends keyof Filters>(k: K, v: Filters[K]) =>
+    const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+    const set = <K extends keyof Filters>(k: K, v: Filters[K]) => {
         setFilters((prev) => ({ ...prev, [k]: v }));
+        setVisibleCount(PAGE_SIZE);
+    };
 
     const isFiltered = Object.values(filters).some((v) => v !== "All");
 
@@ -138,14 +188,31 @@ export default function EventsPage() {
         });
     }, [events, filters]);
 
+    const visible = filtered.slice(0, visibleCount);
+    const hasMore = visibleCount < filtered.length;
+
+    // Infinite scroll — observe a sentinel element at the bottom of the grid
+    const sentinelRef = useRef<HTMLDivElement>(null);
+    const loadMore = useCallback(() => {
+        setVisibleCount((prev) => Math.min(prev + PAGE_SIZE, filtered.length));
+    }, [filtered.length]);
+
+    useEffect(() => {
+        const sentinel = sentinelRef.current;
+        if (!sentinel) return;
+        const observer = new IntersectionObserver(
+            ([entry]) => { if (entry.isIntersecting) loadMore(); },
+            { rootMargin: "200px" },
+        );
+        observer.observe(sentinel);
+        return () => observer.disconnect();
+    }, [loadMore]);
+
     const openCount = events.filter((e) => e.spotsFilled < e.spotsTotal && !isExpired(e.date)).length;
     const spotsLeft = events.reduce((sum, e) => isExpired(e.date) ? sum : sum + Math.max(0, e.spotsTotal - e.spotsFilled), 0);
 
     function resetSignUpForm() {
         setWhy("");
-        setFromTime("");
-        setToTime("");
-        setCertificate(false);
         setSignUpError(null);
     }
 
@@ -155,7 +222,7 @@ export default function EventsPage() {
     }
 
     async function handleConfirm(event: VolunteerEvent) {
-        if (!why.trim() || !fromTime || !toTime) {
+        if (!why.trim()) {
             setSignUpError("Please fill in all required fields.");
             return;
         }
@@ -165,7 +232,7 @@ export default function EventsPage() {
             const res = await fetch(`/api/events/${event.id}/signup`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ why: why.trim(), fromTime, toTime, certificate }),
+                body: JSON.stringify({ why: why.trim() }),
             });
             if (!res.ok) {
                 const data = await res.json();
@@ -313,7 +380,7 @@ export default function EventsPage() {
                             </div>
                             {isFiltered && (
                                 <button
-                                    onClick={() => setFilters(INITIAL_FILTERS)}
+                                    onClick={() => { setFilters(INITIAL_FILTERS); setVisibleCount(PAGE_SIZE); }}
                                     className="px-3 py-2 text-sm text-gray-500 hover:text-gray-700 underline underline-offset-2 transition"
                                 >
                                     Clear filters
@@ -323,6 +390,18 @@ export default function EventsPage() {
                                 Showing {filtered.length} of {events.length} events
                             </p>
                         </div>
+
+                        {/* ── Application status banner ─────────────────── */}
+                        {!canSignUp && (
+                            <div className="mb-6 flex items-center gap-3 bg-blue-50 border border-blue-200 rounded-xl px-5 py-3 text-blue-800 text-sm font-medium shadow-sm">
+                                <Info className="w-5 h-5 text-blue-600 shrink-0" />
+                                {applicationStatus === null
+                                    ? <>You need to submit a volunteer application before you can sign up for events. <a href="/volunteer" className="underline font-bold hover:text-blue-900">Apply now</a></>
+                                    : applicationStatus === "pending"
+                                        ? "Your volunteer application is under review. You'll be able to sign up for events once it's approved."
+                                        : "Your volunteer application was not approved. Please contact us for more information."}
+                            </div>
+                        )}
 
                         {/* ── Success toast ─────────────────────────────── */}
                         {justConfirmed && (
@@ -338,15 +417,16 @@ export default function EventsPage() {
                                 <div className="text-5xl mb-4">🔍</div>
                                 <p className="text-lg font-medium text-gray-500 mb-3">No events match your filters</p>
                                 <button
-                                    onClick={() => setFilters(INITIAL_FILTERS)}
+                                    onClick={() => { setFilters(INITIAL_FILTERS); setVisibleCount(PAGE_SIZE); }}
                                     className="text-blue-600 underline text-sm hover:text-blue-800 transition"
                                 >
                                     Clear all filters
                                 </button>
                             </div>
                         ) : (
+                            <>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                {filtered.map((event) => {
+                                {visible.map((event) => {
                                     const expired    = isExpired(event.date);
                                     const isFull     = event.spotsFilled >= event.spotsTotal;
                                     const isSignedUp = signedUpIds.includes(event.id);
@@ -358,8 +438,12 @@ export default function EventsPage() {
                                             className={`bg-white rounded-xl shadow-sm overflow-hidden flex flex-col hover:shadow-md transition-shadow ${expired ? "opacity-60" : ""}`}
                                         >
                                             {/* Photo area */}
-                                            <div className={`bg-gradient-to-br ${event.gradient} h-40 flex items-center justify-center relative shrink-0`}>
-                                                <span className="text-6xl select-none">{event.emoji}</span>
+                                            <div className={`${event.imageUrl ? "" : `bg-gradient-to-br ${event.gradient}`} h-40 flex items-center justify-center relative shrink-0`}>
+                                                {event.imageUrl ? (
+                                                    <img src={event.imageUrl} alt={event.title} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <span className="text-6xl select-none">{event.emoji}</span>
+                                                )}
                                                 <div className={`absolute top-3 right-3 text-xs font-bold px-2.5 py-1 rounded-full ${
                                                     expired
                                                         ? "bg-black/30 text-white"
@@ -393,9 +477,7 @@ export default function EventsPage() {
                                                     </span>
                                                 </div>
 
-                                                <h3 className="text-base font-bold text-[#1e3a5f] mb-3 leading-snug">
-                                                    {event.title}
-                                                </h3>
+                                                <EventCardText title={event.title} description={event.description} />
 
                                                 <div className="flex flex-col gap-1.5 mb-3 text-xs text-gray-500">
                                                     <span className="flex items-center gap-1.5">
@@ -412,21 +494,38 @@ export default function EventsPage() {
                                                     </span>
                                                 </div>
 
-                                                <p className="text-sm text-gray-600 leading-relaxed flex-1 mb-5">
-                                                    {event.description}
-                                                </p>
-
                                                 {expired ? (
                                                     <div className="w-full py-2.5 rounded-lg text-sm font-bold text-center bg-gray-100 text-gray-400">
                                                         Event Passed
                                                     </div>
                                                 ) : isSignedUp ? (
-                                                    <button
-                                                        onClick={() => handleWithdraw(event.id)}
-                                                        className="w-full py-2.5 rounded-lg text-sm font-bold transition bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
-                                                    >
-                                                        Withdraw
-                                                    </button>
+                                                    confirmWithdraw === event.id ? (
+                                                        <div className="flex gap-2 w-full">
+                                                            <button
+                                                                onClick={() => { handleWithdraw(event.id); setConfirmWithdraw(null); }}
+                                                                className="flex-1 py-2.5 rounded-lg text-sm font-bold transition bg-red-600 text-white hover:bg-red-700"
+                                                            >
+                                                                Confirm
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setConfirmWithdraw(null)}
+                                                                className="flex-1 py-2.5 rounded-lg text-sm font-bold transition border border-gray-200 text-gray-600 hover:bg-gray-100"
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => setConfirmWithdraw(event.id)}
+                                                            className="w-full py-2.5 rounded-lg text-sm font-bold transition bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+                                                        >
+                                                            Withdraw
+                                                        </button>
+                                                    )
+                                                ) : !canSignUp ? (
+                                                    <div className="w-full py-2.5 rounded-lg text-sm font-bold text-center bg-gray-100 text-gray-400 cursor-not-allowed">
+                                                        {applicationStatus === null ? "Apply to Sign Up" : applicationStatus === "pending" ? "Application Pending" : "Application Denied"}
+                                                    </div>
                                                 ) : (
                                                     <button
                                                         onClick={() => !isFull && openSignUpModal(event)}
@@ -446,6 +545,15 @@ export default function EventsPage() {
                                     );
                                 })}
                             </div>
+
+                            {/* Infinite scroll sentinel */}
+                            <div ref={sentinelRef} className="h-1" />
+                            {hasMore && (
+                                <div className="flex justify-center py-8">
+                                    <Loader2 className="w-6 h-6 text-gray-400 animate-spin" />
+                                </div>
+                            )}
+                            </>
                         )}
                     </>
                 )}
@@ -458,8 +566,12 @@ export default function EventsPage() {
                     onClick={(e) => e.target === e.currentTarget && setSignUpEvent(null)}
                 >
                     <div className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden">
-                        <div className={`bg-gradient-to-br ${signUpEvent.gradient} h-28 flex items-center justify-center relative`}>
-                            <span className="text-6xl select-none">{signUpEvent.emoji}</span>
+                        <div className={`${signUpEvent.imageUrl ? "" : `bg-gradient-to-br ${signUpEvent.gradient}`} h-28 flex items-center justify-center relative`}>
+                            {signUpEvent.imageUrl ? (
+                                <img src={signUpEvent.imageUrl} alt={signUpEvent.title} className="w-full h-full object-cover" />
+                            ) : (
+                                <span className="text-6xl select-none">{signUpEvent.emoji}</span>
+                            )}
                             <button
                                 onClick={() => setSignUpEvent(null)}
                                 className="absolute top-3 right-3 text-white/70 hover:text-white transition"
@@ -506,20 +618,6 @@ export default function EventsPage() {
                                     <label className="block text-sm font-semibold text-gray-700 mb-1.5">Why do you want to volunteer? <span className="text-red-500">*</span></label>
                                     <textarea className={fieldCls + " resize-none"} rows={2} value={why} onChange={(e) => setWhy(e.target.value)} placeholder="Tell us why you'd like to help at this event…" />
                                 </div>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">From <span className="text-red-500">*</span></label>
-                                        <input className={fieldCls} type="time" value={fromTime} onChange={(e) => setFromTime(e.target.value)} />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1.5">To <span className="text-red-500">*</span></label>
-                                        <input className={fieldCls} type="time" value={toTime} onChange={(e) => setToTime(e.target.value)} />
-                                    </div>
-                                </div>
-                                <label className="flex items-center gap-2.5 cursor-pointer text-sm text-gray-700">
-                                    <input type="checkbox" checked={certificate} onChange={(e) => setCertificate(e.target.checked)} className="w-4 h-4 accent-[#003366]" />
-                                    I would like a volunteer certificate
-                                </label>
                             </div>
 
                             <div className="flex gap-3">

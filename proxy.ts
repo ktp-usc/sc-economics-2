@@ -63,12 +63,15 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
             const me = (await meRes.json()) as {
                 role: string;
                 hasApplication: boolean;
+                applicationStatus: string | null;
             };
 
-            // Users who already applied don't need the apply page.
+            // Block the apply page only if the user has a pending or approved application.
+            // Denied users are allowed to reapply.
             if (
                 matchesRoute(["/volunteer"], pathname) &&
-                me.hasApplication
+                me.hasApplication &&
+                me.applicationStatus !== "denied"
             ) {
                 return NextResponse.redirect(new URL("/portal", request.url));
             }
@@ -81,8 +84,11 @@ export default async function proxy(request: NextRequest): Promise<NextResponse>
                 return NextResponse.redirect(new URL("/portal", request.url));
             }
         } catch {
-            // If the lookup fails (network error, bad JSON, etc.) let the
-            // request through — the page's own client-side guard will handle it.
+            // If the role lookup fails on a staff-only route, deny access
+            // rather than risking a volunteer reaching /admin or /manager.
+            if (matchesRoute(STAFF_ONLY_ROUTES, pathname)) {
+                return NextResponse.redirect(new URL("/portal", request.url));
+            }
         }
     }
 

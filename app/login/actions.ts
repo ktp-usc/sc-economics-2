@@ -32,7 +32,7 @@ export async function signInWithEmail(
     return { error: error.message ?? "Invalid email or password." };
   }
 
-  redirect("/");
+  redirect("/portal");
 }
 
 /**
@@ -60,5 +60,5 @@ export async function signUpWithEmail(
     return { error: error.message ?? "Could not create account." };
   }
 
-  redirect("/");
+  redirect("/portal");
 }

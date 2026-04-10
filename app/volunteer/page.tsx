@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { CheckCircle } from "lucide-react";
 import { postJSON } from "@/client/api/jsonutils";
 import { authClient } from "@/lib/auth/client";
+import { useNavigate } from "@/context/navigation";
 
 const inputCls =
     "w-full px-3.5 py-2.5 rounded-lg border border-gray-200 bg-gray-100 text-gray-900 text-sm outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 transition";
@@ -40,15 +41,22 @@ const EMPTY: FormState = {
     days: [], skills: "", experience: "", motivation: "", background: false, dataConsent: false
 };
 
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^\+?[\d\s().-]{7,20}$/;
+const ZIP_RE   = /^\d{5}(-\d{4})?$/;
+
 function validate(form: FormState): Partial<Record<keyof FormState, string>> {
     const errors: Partial<Record<keyof FormState, string>> = {};
     if (!form.firstName.trim())   errors.firstName   = "First name is required";
     if (!form.lastName.trim())    errors.lastName    = "Last name is required";
     if (!form.email.trim())       errors.email       = "Email is required";
+    else if (!EMAIL_RE.test(form.email.trim())) errors.email = "Please enter a valid email address";
     if (!form.phone.trim())       errors.phone       = "Phone number is required";
+    else if (!PHONE_RE.test(form.phone.trim())) errors.phone = "Please enter a valid phone number";
     if (!form.street.trim())      errors.street      = "Street address is required";
     if (!form.city.trim())        errors.city        = "City is required";
     if (!form.zip.trim())         errors.zip         = "ZIP code is required";
+    else if (!ZIP_RE.test(form.zip.trim())) errors.zip = "Please enter a valid ZIP code (e.g. 29201 or 29201-1234)";
     if (form.days.length === 0)   errors.days        = "Select at least one day";
     if (!form.skills.trim())      errors.skills      = "Please describe your relevant skills";
     if (!form.motivation.trim())  errors.motivation  = "Please tell us your motivation";
@@ -58,6 +66,7 @@ function validate(form: FormState): Partial<Record<keyof FormState, string>> {
 }
 
 export default function ApplyPage() {
+    const navigate = useNavigate();
     const [form, setForm] = useState<FormState>(EMPTY);
     const [submitted, setSubmitted] = useState(false);
     const [errors, setErrors] = useState<Partial<Record<keyof FormState, string>>>({});
@@ -101,11 +110,11 @@ export default function ApplyPage() {
                         be in touch within 5–7 business days.
                     </p>
                     <button
-                        onClick={() => { setSubmitted(false); setForm(EMPTY); setErrors({}); }}
+                        onClick={() => navigate("/portal")}
                         className="px-6 py-2.5 rounded-lg text-white font-bold text-sm"
                         style={{ backgroundColor: "#003366" }}
                     >
-                        Submit Another
+                        Go to Volunteer Portal
                     </button>
                 </div>
             </div>

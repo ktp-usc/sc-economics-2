@@ -19,7 +19,7 @@ export async function GET() {
 
     const [prismaUser, application] = await Promise.all([
         db.user.findUnique({ where: { email } }),
-        db.application.findFirst({ where: { email }, select: { id: true } }),
+        db.application.findFirst({ where: { email }, select: { id: true, status: true }, orderBy: { appliedAt: "desc" } }),
     ]);
     const role = prismaUser?.role ?? "volunteer";
 
@@ -28,5 +28,6 @@ export async function GET() {
         name: user.name ?? null,
         role,
         hasApplication: !!application,
+        applicationStatus: application?.status ?? null,
     });
 }

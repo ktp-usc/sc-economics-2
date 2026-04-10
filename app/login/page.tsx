@@ -41,7 +41,7 @@ export default function LoginPage() {
     // Redirect away if already logged in
     const { data: session } = authClient.useSession();
     useEffect(() => {
-        if (session?.user) navigate("/");
+        if (session?.user) navigate("/portal");
     }, [session, navigate]);
 
     const [signInState, signInAction, signInPending] = useActionState(signInWithEmail, null);
@@ -105,7 +105,7 @@ export default function LoginPage() {
                         {/* Google OAuth */}
                         <button
                             type="button"
-                            onClick={() => authClient.signIn.social({ provider: "google", callbackURL: "/" })}
+                            onClick={() => authClient.signIn.social({ provider: "google", callbackURL: "/portal" })}
                             className="w-full flex items-center justify-center gap-3 px-4 py-2.5 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 transition"
                         >
                             <svg width="18" height="18" viewBox="0 0 48 48">

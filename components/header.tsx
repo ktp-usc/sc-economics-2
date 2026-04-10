@@ -14,60 +14,54 @@ type NavItem = {
 };
 
 const VOLUNTEER_NAV_APPLY: NavItem[] = [
-    { label: "Home",             href: "/",          activePath: "/" },
     { label: "Apply",            href: "/volunteer", activePath: "/volunteer" },
     { label: "Events",           href: "/events",    activePath: "/events" },
     { label: "Volunteer Portal", href: "/portal",    activePath: "/portal" },
 ];
 
 const VOLUNTEER_NAV: NavItem[] = [
-    { label: "Home",             href: "/",       activePath: "/" },
     { label: "Events",           href: "/events", activePath: "/events" },
     { label: "Volunteer Portal", href: "/portal", activePath: "/portal" },
 ];
 
 const STAFF_NAV: NavItem[] = [
-    { label: "Home",   href: "/",       activePath: "/" },
-    { label: "Events", href: "/events", activePath: "/events" },
-    { label: "Admin",  href: "/admin",  activePath: "/admin" },
+    { label: "Dashboard", href: "/admin", activePath: "/admin" },
 ];
 
 const PUBLIC_NAV: NavItem[] = [
-    { label: "Home",             href: "/",      activePath: "/" },
-    { label: "Apply",            href: "/login", activePath: "/volunteer" },
-    { label: "Events",           href: "/login", activePath: "/events" },
-    { label: "Volunteer Portal", href: "/login", activePath: "/portal" },
+    { label: "Home",  href: "/",      activePath: "/" },
+    { label: "Login", href: "/login", activePath: "/login" },
 ];
 
 export default function Header() {
     const pathname = usePathname();
     const navigate = useNavigate();
 
-    const { data: session, isPending } = authClient.useSession();
+    const { data: session } = authClient.useSession();
 
-    const me = session?.user;
-    const isLoggedIn = !!me;
+    const sessionUser = session?.user;
 
-    // Fetch role and hasApplication from /api/me since the auth session doesn't include these
-    const [extraInfo, setExtraInfo] = useState<{ role: string; hasApplication: boolean } | null>(null);
+    // Fetch role and applicationStatus from /api/me — also serves as a fallback
+    // login check when the client-side session hook doesn't detect the cookie.
+    const [extraInfo, setExtraInfo] = useState<{ role: string; applicationStatus: string | null; name: string | null; email: string } | null>(null);
 
     useEffect(() => {
-        if (!isLoggedIn) {
-            setExtraInfo(null);
-            return;
-        }
         fetch("/api/me")
             .then((r) => r.ok ? r.json() : null)
             .then((data) => {
-                if (data) setExtraInfo({ role: data.role, hasApplication: data.hasApplication });
+                if (data) setExtraInfo({ role: data.role, applicationStatus: data.applicationStatus ?? null, name: data.name, email: data.email });
+                else setExtraInfo(null);
             })
             .catch(() => setExtraInfo(null));
-    }, [isLoggedIn, pathname]);
+    }, [sessionUser, pathname]);
+
+    const isLoggedIn = !!sessionUser || !!extraInfo;
+    const displayName = sessionUser?.name || sessionUser?.email || extraInfo?.name || extraInfo?.email;
 
     const role = extraInfo?.role ?? null;
     const isStaff = role === "admin" || role === "manager";
-    const hasApplied = extraInfo?.hasApplication ?? false;
-    const volunteerNav = hasApplied ? VOLUNTEER_NAV : VOLUNTEER_NAV_APPLY;
+    const isApproved = extraInfo?.applicationStatus === "approved";
+    const volunteerNav = isApproved ? VOLUNTEER_NAV : VOLUNTEER_NAV_APPLY;
     const navItems = isLoggedIn
         ? isStaff
             ? STAFF_NAV
@@ -80,18 +74,10 @@ export default function Header() {
     };
 
     // FIX — render auth section always, just show login button while pending
-    const authSection = isPending ? (
-        // While session is resolving, show login button as placeholder (no flash)
-        <button
-            onClick={() => { if (pathname !== "/login") navigate("/login"); }}
-            className="px-4 py-2 rounded-lg text-sm font-semibold bg-white/15 hover:bg-white/25 transition-colors border border-white/30 opacity-0"
-        >
-            Login
-        </button>
-    ) : isLoggedIn ? (
+    const authSection = isLoggedIn ? (
         <div className="flex items-center gap-2">
             <span className="text-sm text-blue-200 hidden md:inline">
-                {me?.name || me?.email}
+                {displayName}
             </span>
             <button
                 onClick={handleSignOut}
@@ -102,14 +88,7 @@ export default function Header() {
                 <span className="hidden md:inline">Sign Out</span>
             </button>
         </div>
-    ) : (
-        <button
-            onClick={() => { if (pathname !== "/login") navigate("/login"); }}
-            className="px-4 py-2 rounded-lg text-sm font-semibold bg-white/15 hover:bg-white/25 transition-colors border border-white/30"
-        >
-            Login
-        </button>
-    );
+    ) : null;
 
     return (
         <header
@@ -118,7 +97,7 @@ export default function Header() {
         >
             <div className="w-full mx-auto px-4 flex items-center justify-between h-[70px] min-w-0">
                 {/* Logo */}
-                <button onClick={() => navigate("/")} className="flex items-center gap-3 shrink-0">
+                <button onClick={() => { if (pathname !== "/") navigate("/"); }} className="flex items-center gap-3 shrink-0">
                     <Image src="/SC-Econ-logo.png" alt="SC Economics" height={48} width={120} className="h-12 w-auto" />
                 </button>
 
@@ -137,9 +116,11 @@ export default function Header() {
                         </button>
                     ))}
 
-                    <div className="ml-3 pl-3 border-l border-white/30 flex items-center min-w-[80px] shrink-0">
-                        {authSection}
-                    </div>
+                    {authSection && (
+                        <div className="ml-3 pl-3 border-l border-white/30 flex items-center min-w-[80px] shrink-0">
+                            {authSection}
+                        </div>
+                    )}
                 </nav>
             </div>
         </header>

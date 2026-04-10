@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useNavigate } from "@/context/navigation";
 import { authClient } from "@/lib/auth/client";
 import { ArrowRight, Heart, CheckCircle2 } from "lucide-react";
@@ -35,9 +36,24 @@ const impactStats = [
 export default function VolunteerPage() {
     const navigate = useNavigate();
 
-    // FIX #5 — check session to decide where CTA navigates
+    // Check session + role to decide where CTA navigates
     const { data: session } = authClient.useSession();
-    const handleCTA = () => navigate(session?.user ? "/volunteer" : "/login");
+    const [role, setRole] = useState<string | null>(null);
+
+    useEffect(() => {
+        fetch("/api/me")
+            .then((r) => r.ok ? r.json() : null)
+            .then((data) => { if (data) setRole(data.role); })
+            .catch(() => {});
+    }, [session]);
+
+    const isLoggedIn = !!session?.user || !!role;
+    const isStaff = role === "admin" || role === "manager";
+
+    const handleCTA = () => {
+        if (!isLoggedIn) return navigate("/login");
+        navigate(isStaff ? "/admin" : "/volunteer");
+    };
 
     return (
         <div className="min-h-screen bg-white">

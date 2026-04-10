@@ -9,9 +9,28 @@ const CITIES       = ["Columbia", "Greenville", "Charleston", "Spartanburg", "Ro
 
 /**
  * GET /api/events
- * Public — returns all events ordered by date ascending.
+ * Public — returns events ordered by date ascending.
+ * Supports optional pagination: ?limit=9&offset=0
+ * Returns { events, total } when paginated, or a flat array when not.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
+    const { searchParams } = new URL(req.url);
+    const limitParam  = searchParams.get("limit");
+    const offsetParam = searchParams.get("offset");
+
+    if (limitParam != null) {
+        const limit  = Math.max(1, parseInt(limitParam, 10) || 9);
+        const offset = Math.max(0, parseInt(offsetParam ?? "0", 10));
+
+        const [events, total] = await Promise.all([
+            db.event.findMany({ orderBy: { date: "asc" }, take: limit, skip: offset }),
+            db.event.count(),
+        ]);
+
+        return NextResponse.json({ events, total }, { status: 200 });
+    }
+
+    // No pagination — return all (used by admin dashboard, etc.)
     const events = await db.event.findMany({ orderBy: { date: "asc" } });
     return NextResponse.json(events, { status: 200 });
 }
@@ -34,7 +53,7 @@ export async function POST(req: NextRequest) {
     }
 
     const {
-        title, description, venue, city, type, ageGroup, expertise, date, spotsTotal,
+        title, description, venue, city, type, ageGroup, expertise, date, spotsTotal, imageUrl,
     } = body as Record<string, unknown>;
 
     if (!title || !description || !venue || !city || !type || !ageGroup || !expertise || !date || spotsTotal === undefined) {
@@ -72,6 +91,7 @@ export async function POST(req: NextRequest) {
                 expertise:   expertise as never,
                 date:        new Date(date),
                 spotsTotal:  spots,
+                ...(typeof imageUrl === "string" && imageUrl.trim() && { imageUrl: imageUrl.trim() }),
             },
         });
         return NextResponse.json(event, { status: 201 });
