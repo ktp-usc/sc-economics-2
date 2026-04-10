@@ -27,16 +27,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         return NextResponse.json({ error: "Invalid request body" }, { status: 400 });
     }
 
-    const { why, fromTime, toTime, certificate, expertise } = body as Record<string, unknown>;
+    const { why } = body as Record<string, unknown>;
 
-    const missing: string[] = [];
-    if (!why || typeof why !== "string" || !why.trim()) missing.push("why");
-    if (!fromTime || typeof fromTime !== "string" || !fromTime.trim()) missing.push("fromTime");
-    if (!toTime || typeof toTime !== "string" || !toTime.trim()) missing.push("toTime");
-    if (certificate === undefined || certificate === null) missing.push("certificate");
+    if (!why || typeof why !== "string" || !why.trim()) {
+        return NextResponse.json({ error: "Missing required fields", fields: ["why"] }, { status: 400 });
+    }
 
-    if (missing.length > 0) {
-        return NextResponse.json({ error: "Missing required fields", fields: missing }, { status: 400 });
+    // Require an approved volunteer application before signing up
+    const userEmail = (session.user as { email?: string }).email ?? "";
+    const application = await db.application.findFirst({
+        where: { email: userEmail, status: "approved" },
+        select: { id: true },
+    });
+    if (!application) {
+        return NextResponse.json(
+            { error: "Your volunteer application must be approved before you can sign up for events." },
+            { status: 403 },
+        );
     }
 
     try {
@@ -69,10 +76,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
                     userId: session.user.id,
                     eventId,
                     why: (why as string).trim(),
-                    fromTime: (fromTime as string).trim(),
-                    toTime: (toTime as string).trim(),
-                    certificate: certificate === true || certificate === "yes",
-                    expertise: typeof expertise === "string" && expertise.trim() ? expertise.trim() : undefined,
+                    fromTime: "",
+                    toTime: "",
+                    certificate: false,
                 },
             }),
             db.event.update({
